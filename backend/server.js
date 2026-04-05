@@ -6,6 +6,7 @@ const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 
 const http = require("http");
+const mongoose = require("mongoose");
 const { Server } = require("socket.io");
 const { connectMongo } = require("./config/db");
 const { createApp } = require("./app");
@@ -26,8 +27,24 @@ async function main() {
   registerSocket(io);
 
   server.listen(PORT, () => {
-    console.log(`API + Socket.io http://localhost:${PORT}`);
+    const base = `http://localhost:${PORT}`;
+    console.log("");
+    console.log(`  API + Socket.io  ${base}`);
+    console.log(`  Health check     ${base}/api/health`);
+    console.log(`  Chỉ backend — không cần React; gọi API bằng Postman/curl.`);
+    console.log("");
   });
+
+  async function shutdown() {
+    console.log("\nĐang tắt server…");
+    await mongoose.connection.close().catch(() => {});
+    await new Promise((resolve) => {
+      server.close(() => resolve());
+    });
+    process.exit(0);
+  }
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
 }
 
 main().catch((err) => {
