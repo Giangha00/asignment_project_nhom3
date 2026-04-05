@@ -5,6 +5,7 @@ import Register from './page/authen/Register';
 import Dashboard from './page/Dashboard';
 import ForgotPassword from './page/authen/ForgotPassword';
 import ResetPassword from './page/authen/ResetPassword';
+import Home from './page/home/Home';
 import './App.css';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
+        <Route path="/home" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
       </Routes>
    
   );
