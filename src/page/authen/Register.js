@@ -7,12 +7,14 @@ function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
 
     // Kiểm tra mật khẩu
     if (password !== confirmPassword) {
@@ -66,16 +68,13 @@ function Register() {
       registeredUsers.push(newUser);
       localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
 
-      // Lưu thông tin user hiện tại
-      localStorage.setItem('token', 'demo-token-' + Date.now());
-      localStorage.setItem('user', JSON.stringify({
-        id: newUser.id,
-        username: newUser.username,
-        email: newUser.email
-      }));
-
-      // Chuyển hướng tới dashboard
-      navigate('/dashboard');
+      // Hiển thị thông báo thành công
+      setSuccess('Đăng ký thành công! Chuyển hướng đến trang đăng nhập...');
+      
+      // Chuyển hướng tới trang đăng nhập sau 2 giây
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err) {
       setError('Có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
@@ -91,6 +90,12 @@ function Register() {
         {error && (
           <div className="bg-red-100 text-red-700 px-4 py-3 rounded mb-6 border border-red-300">
             {error}
+          </div>
+        )}
+        
+        {success && (
+          <div className="bg-green-100 text-green-700 px-4 py-3 rounded mb-6 border border-green-300">
+            {success}
           </div>
         )}
         
