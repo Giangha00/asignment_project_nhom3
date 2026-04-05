@@ -51,8 +51,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   /** Chỉ tạo tài khoản — không đăng nhập; user phải vào tab Đăng nhập sau đó. */
-  const register = useCallback(async (full_name, email, password) => {
-    await registerRequest(full_name, email, password);
+  const register = useCallback(async (fullName, email, password) => {
+    await registerRequest(fullName, email, password);
   }, []);
 
   const logout = useCallback(() => {

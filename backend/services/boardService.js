@@ -1,95 +1,110 @@
-const User = require("../models/User");
-const Board = require("../models/Board");
-const BoardMember = require("../models/BoardMember");
-const Workspace = require("../models/Workspace");
-const { getWorkspaceIdsForUser, resolveWorkspace } = require("./workspaceService");
-const {
-  getStarredBoardIdSet,
-  getRecentViewMap,
-  toggleUserBoardStar,
-  recordBoardView,
-} = require("./boardUserPrefsService");
-const { boardToListItem, coverUrlFromTheme } = require("../lib/boardDto");
+const Board = require("../models/boardModel");
+const BoardMember = require("../models/boardMemberModel");
+const { logActivity } = require("../utils/activityLog");
+const { emitToBoard, emitToWorkspace } = require("../utils/socketEmit");
+const { HttpError } = require("../utils/httpError");
+const { assertObjectId } = require("./validation");
+const { isWorkspaceMember } = require("./accessService");
 
-async function ensureUserBoardAccess(userId, boardId) {
-  const wsIds = await getWorkspaceIdsForUser(userId);
-  const board = await Board.findById(boardId);
-  if (!board || board.is_archived) return { board: null, ok: false };
-  if (!wsIds.includes(board.workspace_id)) return { board: null, ok: false };
-  return { board, ok: true };
+async function listByWorkspace(userId, workspaceId) {
+  assertObjectId(workspaceId, "workspaceId query required");
+  const ok = await isWorkspaceMember(workspaceId, userId);
+  if (!ok) throw new HttpError(403, "Forbidden");
+  return Board.find({ workspaceId, archivedAt: null }).sort({ createdAt: -1 }).lean();
 }
 
-async function listBoardsWithMeta(userId) {
-  const wsIds = await getWorkspaceIdsForUser(userId);
-  if (wsIds.length === 0) return [];
-  const workspaces = await Workspace.find({ _id: { $in: wsIds }, deleted_at: null });
-  const wsName = Object.fromEntries(workspaces.map((w) => [w._id, w.name]));
-  const boards = await Board.find({
-    workspace_id: { $in: wsIds },
-    is_archived: false,
-  }).sort({ updated_at: -1, created_at: 1 });
-  const starSet = await getStarredBoardIdSet(userId);
-  const recentMap = await getRecentViewMap(userId);
-  return boards.map((b) => {
-    const starred = starSet.has(b._id) || b.is_starred;
-    const last_viewed_at = recentMap.get(b._id);
-    return {
-      ...boardToListItem(b, wsName[b.workspace_id] || "", { starred, last_viewed_at }),
-      workspace_id: b.workspace_id,
-    };
-  });
-}
-
-async function createBoardForUser(userId, { name, background, workspace_id }) {
-  const user = await User.findById(userId);
-  if (!user) return { error: "unauthorized", board: null, workspace: null };
-  const workspace = await resolveWorkspace(userId, workspace_id || null);
-  if (!workspace) return { error: "no_workspace", board: null, workspace: null };
+async function createBoard(app, userId, body) {
+  const { workspaceId, name, description, visibility, coverUrl } = body || {};
+  if (!workspaceId || !name) throw new HttpError(400, "workspaceId and name required");
+  assertObjectId(workspaceId, "Invalid workspaceId");
+  const ok = await isWorkspaceMember(workspaceId, userId);
+  if (!ok) throw new HttpError(403, "Forbidden");
   const board = await Board.create({
-    workspace_id: workspace._id,
+    workspaceId,
     name,
-    visibility: "workspace",
-    created_by: user._id,
-    cover_url: coverUrlFromTheme(background),
-    is_starred: false,
+    description: description || "",
+    visibility: visibility || "workspace",
+    createdBy: userId,
+    coverUrl: coverUrl || "",
   });
-  await BoardMember.create({
-    board_id: board._id,
-    user_id: user._id,
-    role: "admin",
+  await BoardMember.create({ boardId: board._id, userId, role: "admin" });
+  await logActivity(app, {
+    workspaceId: board.workspaceId,
+    boardId: board._id,
+    userId,
+    action: "board.created",
+    entityType: "board",
+    newData: board.toJSON(),
   });
-  return { error: null, board, workspace };
+  emitToBoard(app, String(board._id), "board:created", board.toJSON());
+  emitToWorkspace(app, String(workspaceId), "board:created", board.toJSON());
+  return board;
 }
 
-async function toggleStar(userId, boardId) {
-  const { board, ok } = await ensureUserBoardAccess(userId, boardId);
-  if (!ok || !board) return { ok: false, board: null, workspace: null, starred: null };
-  const starred = await toggleUserBoardStar(userId, board._id);
-  const workspace = await Workspace.findById(board.workspace_id);
-  return { ok: true, board, workspace, starred };
+async function getBoard(userId, id) {
+  assertObjectId(id);
+  const board = await Board.findById(id);
+  if (!board) throw new HttpError(404, "Not found");
+  const wsOk = await isWorkspaceMember(board.workspaceId, userId);
+  const bm = await BoardMember.findOne({ boardId: id, userId });
+  if (!wsOk && !bm) throw new HttpError(403, "Forbidden");
+  return board;
 }
 
-async function recordView(userId, boardId) {
-  const { board, ok } = await ensureUserBoardAccess(userId, boardId);
-  if (!ok || !board) return { ok: false };
-  await recordBoardView(userId, board._id);
-  return { ok: true };
-}
-
-async function archiveBoard(userId, boardId) {
-  const { board, ok } = await ensureUserBoardAccess(userId, boardId);
-  if (!ok || !board) return { ok: false, board: null };
-  board.is_archived = true;
-  board.archived_at = new Date();
+async function updateBoard(app, userId, id, body) {
+  const board = await getBoardForWorkspaceAdmin(userId, id);
+  const old = board.toObject();
+  const { name, description, visibility, coverUrl, isStarred, archivedAt } = body || {};
+  if (name !== undefined) board.name = name;
+  if (description !== undefined) board.description = description;
+  if (visibility !== undefined) board.visibility = visibility;
+  if (coverUrl !== undefined) board.coverUrl = coverUrl;
+  if (isStarred !== undefined) board.isStarred = isStarred;
+  if (archivedAt !== undefined) board.archivedAt = archivedAt ? new Date(archivedAt) : null;
   await board.save();
-  return { ok: true, board };
+  await logActivity(app, {
+    workspaceId: board.workspaceId,
+    boardId: board._id,
+    userId,
+    action: "board.updated",
+    entityType: "board",
+    oldData: old,
+    newData: board.toJSON(),
+  });
+  emitToBoard(app, String(board._id), "board:updated", board.toJSON());
+  return board;
+}
+
+async function getBoardForWorkspaceAdmin(userId, id) {
+  assertObjectId(id);
+  const board = await Board.findById(id);
+  if (!board) throw new HttpError(404, "Not found");
+  const ok = await isWorkspaceMember(board.workspaceId, userId);
+  if (!ok) throw new HttpError(403, "Forbidden");
+  return board;
+}
+
+async function deleteBoard(app, userId, id) {
+  const board = await getBoardForWorkspaceAdmin(userId, id);
+  const wid = board.workspaceId;
+  const snapshot = board.toJSON();
+  await Board.deleteOne({ _id: id });
+  await logActivity(app, {
+    workspaceId: wid,
+    boardId: id,
+    userId,
+    action: "board.deleted",
+    entityType: "board",
+    oldData: snapshot,
+  });
+  emitToBoard(app, String(id), "board:deleted", { id });
+  emitToWorkspace(app, String(wid), "board:deleted", { id });
 }
 
 module.exports = {
-  ensureUserBoardAccess,
-  listBoardsWithMeta,
-  createBoardForUser,
-  toggleStar,
-  recordView,
-  archiveBoard,
+  listByWorkspace,
+  createBoard,
+  getBoard,
+  updateBoard,
+  deleteBoard,
 };

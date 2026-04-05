@@ -2,13 +2,17 @@
  * Chỉ khởi động kết nối: MongoDB → HTTP (Express) + Socket.io cùng cổng.
  * Route & logic API: app.js — sự kiện socket: socket.js
  */
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
+
 const http = require("http");
 const { Server } = require("socket.io");
-const { connectMongo } = require("./config/database");
+const { connectMongo } = require("./config/db");
 const { createApp } = require("./app");
 const { registerSocket } = require("./socket");
 
-const PORT = Number(process.env.API_PORT || process.env.PORT) || 3000;
+/** Mặc định 4000 để tránh trùng PORT=3000 của react-scripts khi chạy `npm run dev`. */
+const PORT = Number(process.env.API_PORT) || 4000;
 
 async function main() {
   await connectMongo();

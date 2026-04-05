@@ -129,7 +129,7 @@ export function DashboardPage() {
     window.alert(`Mở bảng: "${board.title || board.name}"`);
   }
 
-  const initials = initialsFromName(user?.full_name);
+  const initials = initialsFromName(user?.fullName || user?.full_name);
 
   return (
     <div className="min-h-screen bg-[#1d2125] text-[#b6c2cf]">
@@ -139,6 +139,7 @@ export function DashboardPage() {
           const first = workspaces[0]?._id || null;
           openCreate(first);
         }}
+        onOtpTest={() => navigate("/")}
         onLogout={() => {
           logout();
           navigate("/", { replace: true });
@@ -263,7 +264,7 @@ export function DashboardPage() {
   );
 }
 
-function DarkTopBar({ initials, onCreate, onLogout }) {
+function DarkTopBar({ initials, onCreate, onOtpTest, onLogout }) {
   return (
     <header className="flex h-12 items-center gap-2 border-b border-[#38414a] bg-[#22272b] px-3 text-white sm:gap-3 sm:px-4">
       <button
@@ -354,6 +355,14 @@ function DarkTopBar({ initials, onCreate, onLogout }) {
         >
           {initials}
         </div>
+        <button
+          type="button"
+          onClick={onOtpTest}
+          className="hidden rounded-[3px] px-2 py-1 text-xs font-medium text-[#9fadbc] hover:bg-[#ffffff14] hover:text-white sm:block"
+          title="Mở trang đổi mật khẩu bằng OTP"
+        >
+          OTP đổi MK
+        </button>
         <button
           type="button"
           onClick={onLogout}

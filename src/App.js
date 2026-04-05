@@ -18,26 +18,12 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-function GuestRoute({ children }) {
-  const { user, loading } = useAuth();
-  if (loading) return <LoadingScreen />;
-  if (user) return <Navigate to="/boards" replace />;
-  return children;
-}
-
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route
-            path="/"
-            element={
-              <GuestRoute>
-                <AuthPage />
-              </GuestRoute>
-            }
-          />
+          <Route path="/" element={<AuthPage />} />
           <Route
             path="/boards"
             element={

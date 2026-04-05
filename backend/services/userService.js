@@ -1,48 +1,66 @@
-const bcrypt = require("bcryptjs");
-const User = require("../models/User");
+const User = require("../models/userModel");
+const { HttpError } = require("../utils/httpError");
+const { assertObjectId } = require("./validation");
+const otpRequestService = require("./otpRequestService");
 
-async function findByEmail(email) {
-  return User.findOne({ email });
+async function getByIdOrThrow(id, { allowDeleted = false } = {}) {
+  assertObjectId(id);
+  const user = await User.findById(id);
+  if (!user || (!allowDeleted && user.deletedAt)) throw new HttpError(404, "Not found");
+  return user;
 }
 
-async function findActiveById(id) {
-  return User.findOne({ _id: id, deleted_at: null });
+async function getMe(userId) {
+  return getByIdOrThrow(userId);
 }
 
-async function findById(id) {
-  return User.findById(id);
-}
-
-async function createUser({ email, password_hash, full_name }) {
-  return User.create({
-    email,
-    password_hash,
-    full_name,
-    status: "active",
-    email_verified: false,
-  });
-}
-
-async function hashPassword(plain) {
-  return bcrypt.hash(plain, 10);
-}
-
-async function comparePassword(plain, hash) {
-  return bcrypt.compare(plain, hash);
-}
-
-async function updateLastLogin(user) {
-  user.last_login_at = new Date();
+async function updateMe(userId, body) {
+  const { fullName, avatarUrl, status } = body || {};
+  const user = await getByIdOrThrow(userId);
+  if (fullName !== undefined) user.fullName = fullName;
+  if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
+  if (status !== undefined) user.status = status;
   await user.save();
   return user;
 }
 
+async function listUsers() {
+  return User.find({ deletedAt: null }).limit(200).lean();
+}
+
+async function softDeleteUser(id) {
+  const user = await User.findById(id);
+  if (!user) throw new HttpError(404, "Not found");
+  user.deletedAt = new Date();
+  await user.save();
+}
+
+const MIN_PASSWORD_LEN = 6;
+
+async function changePasswordWithOtp(userId, body) {
+  const { newPassword, otpCode } = body || {};
+  if (!newPassword || otpCode === undefined || otpCode === "") {
+    throw new HttpError(400, "newPassword và otpCode là bắt buộc");
+  }
+  if (String(newPassword).length < MIN_PASSWORD_LEN) {
+    throw new HttpError(400, `Mật khẩu mới tối thiểu ${MIN_PASSWORD_LEN} ký tự`);
+  }
+
+  const user = await User.findById(userId).select("+passwordHash");
+  if (!user || user.deletedAt) throw new HttpError(404, "Not found");
+
+  await otpRequestService.verifyOtpForUser(userId, user.email, "change_password", otpCode);
+
+  user.passwordHash = await User.hashPassword(newPassword);
+  user.emailVerified = true;
+  await user.save();
+}
+
 module.exports = {
-  findByEmail,
-  findActiveById,
-  findById,
-  createUser,
-  hashPassword,
-  comparePassword,
-  updateLastLogin,
+  getMe,
+  updateMe,
+  getByIdOrThrow,
+  listUsers,
+  softDeleteUser,
+  changePasswordWithOtp,
 };
