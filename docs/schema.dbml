@@ -1,0 +1,263 @@
+// Source schema (DBML). MongoDB collections mirror these tables — see server/models/*.js
+
+Table users {
+  id uuid [primary key]
+  email varchar(255) [not null]
+  password_hash text [not null]
+  full_name varchar(150) [not null]
+  avatar_url text
+  status varchar(20) [not null, default: 'active']
+  email_verified boolean [not null, default: false]
+  last_login_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+
+  indexes {
+    (email) [unique]
+  }
+}
+
+Table user_sessions {
+  id uuid [primary key]
+  user_id uuid [not null]
+  refresh_token_hash text [not null]
+  user_agent text
+  ip_address varchar(50)
+  is_revoked boolean [not null, default: false]
+  expires_at timestamp [not null]
+  created_at timestamp [not null]
+  revoked_at timestamp
+
+  indexes {
+    (refresh_token_hash) [unique]
+  }
+}
+
+Table otp_requests {
+  id uuid [primary key]
+  user_id uuid [not null]
+  email varchar(255) [not null]
+  otp_code_hash text [not null]
+  otp_type varchar(30) [not null, default: 'reset_password']
+  status varchar(20) [not null, default: 'pending']
+  attempt_count int [not null, default: 0]
+  max_attempts int [not null, default: 5]
+  expires_at timestamp [not null]
+  used_at timestamp
+  created_at timestamp [not null]
+}
+
+Table workspaces {
+  id uuid [primary key]
+  name varchar(150) [not null]
+  slug varchar(180) [not null]
+  description text
+  owner_id uuid [not null]
+  visibility varchar(20) [not null, default: 'private']
+  logo_url text
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+
+  indexes {
+    (slug) [unique]
+  }
+}
+
+Table workspace_members {
+  id uuid [primary key]
+  workspace_id uuid [not null]
+  user_id uuid [not null]
+  role varchar(20) [not null, default: 'member']
+  status varchar(20) [not null, default: 'active']
+  invited_by uuid
+  joined_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  removed_at timestamp
+
+  indexes {
+    (workspace_id, user_id) [unique]
+  }
+}
+
+Table boards {
+  id uuid [primary key]
+  workspace_id uuid [not null]
+  name varchar(150) [not null]
+  description text
+  visibility varchar(20) [not null, default: 'workspace']
+  created_by uuid [not null]
+  cover_url text
+  is_starred boolean [not null, default: false]
+  is_archived boolean [not null, default: false]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  archived_at timestamp
+}
+
+Table board_members {
+  id uuid [primary key]
+  board_id uuid [not null]
+  user_id uuid [not null]
+  role varchar(20) [not null, default: 'member']
+  created_at timestamp [not null]
+
+  indexes {
+    (board_id, user_id) [unique]
+  }
+}
+
+Table board_lists {
+  id uuid [primary key]
+  board_id uuid [not null]
+  name varchar(120) [not null]
+  position bigint [not null]
+  is_archived boolean [not null, default: false]
+  created_by uuid [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  archived_at timestamp
+}
+
+Table cards {
+  id uuid [primary key]
+  board_id uuid [not null]
+  list_id uuid [not null]
+  title varchar(255) [not null]
+  description text
+  position bigint [not null]
+  priority varchar(20) [not null, default: 'medium']
+  start_at timestamp
+  due_at timestamp
+  completed_at timestamp
+  cover_url text
+  created_by uuid [not null]
+  is_archived boolean [not null, default: false]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  archived_at timestamp
+}
+
+Table card_members {
+  id uuid [primary key]
+  card_id uuid [not null]
+  user_id uuid [not null]
+  assigned_by uuid
+  assigned_at timestamp [not null]
+
+  indexes {
+    (card_id, user_id) [unique]
+  }
+}
+
+Table labels {
+  id uuid [primary key]
+  board_id uuid [not null]
+  name varchar(80)
+  color varchar(30) [not null]
+  created_at timestamp [not null]
+}
+
+Table card_labels {
+  card_id uuid [not null]
+  label_id uuid [not null]
+  created_at timestamp [not null]
+
+  indexes {
+    (card_id, label_id) [unique]
+  }
+}
+
+Table comments {
+  id uuid [primary key]
+  card_id uuid [not null]
+  user_id uuid [not null]
+  content text [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+  deleted_at timestamp
+}
+
+Table checklists {
+  id uuid [primary key]
+  card_id uuid [not null]
+  title varchar(150) [not null]
+  position bigint [not null]
+  created_by uuid [not null]
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table checklist_items {
+  id uuid [primary key]
+  checklist_id uuid [not null]
+  content varchar(255) [not null]
+  position bigint [not null]
+  is_completed boolean [not null, default: false]
+  completed_by uuid
+  completed_at timestamp
+  created_at timestamp [not null]
+  updated_at timestamp [not null]
+}
+
+Table attachments {
+  id uuid [primary key]
+  card_id uuid [not null]
+  uploaded_by uuid [not null]
+  file_name varchar(255) [not null]
+  file_url text [not null]
+  file_mime_type varchar(100)
+  file_size_bytes bigint
+  created_at timestamp [not null]
+}
+
+Table activities {
+  id uuid [primary key]
+  workspace_id uuid
+  board_id uuid
+  list_id uuid
+  card_id uuid
+  actor_id uuid
+  entity_type varchar(30) [not null]
+  action varchar(100) [not null]
+  old_data text
+  new_data text
+  created_at timestamp [not null]
+}
+
+Ref: user_sessions.user_id > users.id
+Ref: otp_requests.user_id > users.id
+Ref: workspaces.owner_id > users.id
+Ref: workspace_members.workspace_id > workspaces.id
+Ref: workspace_members.user_id > users.id
+Ref: workspace_members.invited_by > users.id
+Ref: boards.workspace_id > workspaces.id
+Ref: boards.created_by > users.id
+Ref: board_members.board_id > boards.id
+Ref: board_members.user_id > users.id
+Ref: board_lists.board_id > boards.id
+Ref: board_lists.created_by > users.id
+Ref: cards.board_id > boards.id
+Ref: cards.list_id > board_lists.id
+Ref: cards.created_by > users.id
+Ref: card_members.card_id > cards.id
+Ref: card_members.user_id > users.id
+Ref: card_members.assigned_by > users.id
+Ref: labels.board_id > boards.id
+Ref: card_labels.card_id > cards.id
+Ref: card_labels.label_id > labels.id
+Ref: comments.card_id > cards.id
+Ref: comments.user_id > users.id
+Ref: checklists.card_id > cards.id
+Ref: checklists.created_by > users.id
+Ref: checklist_items.checklist_id > checklists.id
+Ref: checklist_items.completed_by > users.id
+Ref: attachments.card_id > cards.id
+Ref: attachments.uploaded_by > users.id
+Ref: activities.workspace_id > workspaces.id
+Ref: activities.board_id > boards.id
+Ref: activities.list_id > board_lists.id
+Ref: activities.card_id > cards.id
+Ref: activities.actor_id > users.id
