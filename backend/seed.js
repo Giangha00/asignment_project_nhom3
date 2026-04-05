@@ -162,3 +162,21 @@ async function seedIfEmpty() {
 }
 
 module.exports = { seedIfEmpty };
+
+if (require.main === module) {
+  require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
+  const mongoose = require("mongoose");
+  const { withDefaultDb } = require("./db");
+
+  (async () => {
+    const uri = withDefaultDb(process.env.MONGODB_URI);
+    await mongoose.connect(uri);
+    console.log("MongoDB:", uri);
+    await seedIfEmpty();
+    await mongoose.disconnect();
+    process.exit(0);
+  })().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}

@@ -1,5 +1,5 @@
-const WorkspaceMember = require("../models/WorkspaceMember");
-const Workspace = require("../models/Workspace");
+const WorkspaceMember = require("../../backend/models/WorkspaceMember");
+const Workspace = require("../../backend/models/Workspace");
 
 async function getWorkspaceIdsForUser(userId) {
   const members = await WorkspaceMember.find({

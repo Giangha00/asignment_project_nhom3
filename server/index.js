@@ -4,14 +4,15 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
-require("./models");
+require("../backend/models");
 
-const Board = require("./models/Board");
-const User = require("./models/User");
-const Workspace = require("./models/Workspace");
-const BoardMember = require("./models/BoardMember");
+const Board = require("../backend/models/Board");
+const User = require("../backend/models/User");
+const Workspace = require("../backend/models/Workspace");
+const BoardMember = require("../backend/models/BoardMember");
+const { withDefaultDb } = require("../backend/db");
 const { boardToListItem, coverUrlFromTheme } = require("./dto/boardDto");
-const { seedIfEmpty } = require("./seed");
+const { seedIfEmpty } = require("../backend/seed");
 const { authMiddleware, signUserToken } = require("./middleware/auth");
 const {
   getWorkspaceIdsForUser,
@@ -27,19 +28,6 @@ const {
 } = require("./services/boardUserPrefs");
 
 const PORT = Number(process.env.API_PORT || process.env.PORT) || 3000;
-
-function withDefaultDb(uri, dbName = "trello_boards") {
-  const u = ((uri && uri.trim()) || "mongodb://localhost:27017/").replace(/\s/g, "");
-  const m = u.match(/^(mongodb(?:\+srv)?:\/\/[^/?]+)(\/([^?]*))?(\?.*)?$/);
-  if (!m) return u;
-  const origin = m[1];
-  const afterSlash = m[3] !== undefined ? m[3] : "";
-  const query = m[4] || "";
-  if (afterSlash === "") {
-    return `${origin}/${dbName}${query}`;
-  }
-  return u;
-}
 
 const MONGODB_URI = withDefaultDb(process.env.MONGODB_URI);
 

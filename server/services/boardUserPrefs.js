@@ -1,5 +1,5 @@
-const UserBoardStar = require("../models/UserBoardStar");
-const UserBoardRecent = require("../models/UserBoardRecent");
+const UserBoardStar = require("../../backend/models/UserBoardStar");
+const UserBoardRecent = require("../../backend/models/UserBoardRecent");
 
 async function getStarredBoardIdSet(userId) {
   const rows = await UserBoardStar.find({ user_id: userId }).lean();

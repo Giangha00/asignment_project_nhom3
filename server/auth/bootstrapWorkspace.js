@@ -1,6 +1,6 @@
 const { randomUUID } = require("crypto");
-const Workspace = require("../models/Workspace");
-const WorkspaceMember = require("../models/WorkspaceMember");
+const Workspace = require("../../backend/models/Workspace");
+const WorkspaceMember = require("../../backend/models/WorkspaceMember");
 
 async function createWorkspaceForUser(user, { name, slugPrefix = "ws" } = {}) {
   const displayName = name || "Không gian làm việc";
