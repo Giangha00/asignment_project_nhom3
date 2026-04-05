@@ -1,237 +1,39 @@
-import React, { useState } from "react";
-import Header from "./components/Header";
-import Sidebar from "./components/SideBarHome";
-import ContentBoard from "./components/ContentBoard";
-import MemberContent from "./components/MemberContent";
-import HomeContent from "./components/HomeContent";
-import SettingContent from "./components/SettingContent";
-
-const initialWorkspaces = [
-  {
-    id: 1,
-    name: 'Trello Không gian làm việc',
-    color: 'bg-[#a548bf]',
-    isOpen: true,
-    hasBilling: true,
-    boards: [
-      {
-        id: 'board-1',
-        name: 'Bảng',
-        description: 'Bảng khởi đầu để quản lý công việc trực quan'
-      }
-    ],
-    members: [
-      {
-        id: 'member-1',
-        name: 'Nguyễn Hưng',
-        initials: 'NH',
-        handle: '@hungnguyen05112003',
-        role: 'Quản trị viên',
-        lastActive: 'Apr 2026'
-      }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Trello workspace',
-    color: 'bg-[#cd5a91]',
-    isOpen: false,
-    hasBilling: false,
-    boards: [
-      {
-        id: 'board-2',
-        name: 'Bảng Nhiệm vụ',
-        description: 'Sắp xếp nhiệm vụ theo từng giai đoạn rõ ràng'
-      }
-    ],
-    members: [
-      {
-        id: 'member-2',
-        name: 'Nguyễn Hưng',
-        initials: 'NH',
-        handle: '@hungnguyen05112003',
-        role: 'Quản trị viên',
-        lastActive: 'Apr 2026'
-      }
-    ]
-  }
-];
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './page/authen/Login';
+import Register from './page/authen/Register';
+import Dashboard from './page/Dashboard';
+import ForgotPassword from './page/authen/ForgotPassword';
+import ResetPassword from './page/authen/ResetPassword';
+import Home from './page/home/Home';
+import './App.css';
 
 function App() {
-  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(initialWorkspaces[0].id);
-  const [activeSection, setActiveSection] = useState('board');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const currentUser = {
-    name: 'Nguyễn Hưng',
-    initials: 'NH',
-    email: 'hungnguyen05112003@example.com',
-    role: 'Quản trị viên'
-  };
+  useEffect(() => {
+    // Kiểm tra token khi app load
+    const token = localStorage.getItem('token');
+    setIsAuthenticated(!!token);
+    setLoading(false);
+  }, []);
 
-  const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) ?? workspaces[0];
-
-  const handleSelectWorkspace = (workspaceId) => {
-    setActiveWorkspaceId(workspaceId);
-    setActiveSection('board');
-  };
-
-  const handleSelectSection = (section, workspaceId) => {
-    setActiveWorkspaceId(workspaceId);
-    setActiveSection(section);
-  };
-
-  const toggleWorkspace = (workspaceId) => {
-    setWorkspaces(prev => prev.map(ws =>
-      ws.id === workspaceId ? { ...ws, isOpen: !ws.isOpen } : ws
-    ));
-  };
-
-  const handleCreateWorkspace = (workspaceName) => {
-    const newWorkspace = {
-      id: Date.now(),
-      name: workspaceName || `Workspace mới ${workspaces.length + 1}`,
-      color: 'bg-[#6d5de7]',
-      isOpen: true,
-      hasBilling: false,
-      boards: [],
-      members: [
-        {
-          id: `member-${Date.now()}`,
-          name: currentUser.name,
-          initials: currentUser.initials,
-          handle: `@${currentUser.email.split('@')[0]}`,
-          role: currentUser.role,
-          lastActive: 'Mới tham gia'
-        }
-      ]
-    };
-
-    setWorkspaces(prev => [...prev, newWorkspace]);
-    setActiveWorkspaceId(newWorkspace.id);
-    setActiveSection('board');
-  };
-
-  const handleInviteMember = (workspaceId, email) => {
-    const targetWorkspace = workspaces.find(ws => ws.id === workspaceId);
-    if (!targetWorkspace) return;
-
-    const rawName = email.split('@')[0].replace(/[^a-zA-Z0-9]+/g, ' ').trim();
-    const name = rawName
-      ? rawName.split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
-      : 'Thành viên mới';
-    const initials = name
-      .split(' ')
-      .map(part => part.charAt(0))
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || email.charAt(0).toUpperCase();
-
-    const newMember = {
-      id: `member-${workspaceId}-${Date.now()}`,
-      name,
-      initials,
-      handle: `@${email.split('@')[0]}`,
-      role: 'Thành viên',
-      lastActive: 'Mới mời'
-    };
-
-    setWorkspaces(prev => prev.map(ws =>
-      ws.id === workspaceId ? { ...ws, members: [...ws.members, newMember] } : ws
-    ));
-  };
-
-  const handleCreateBoard = (payload = 'board') => {
-      let targetWorkspaceId = activeWorkspaceId ?? workspaces[0].id;
-    if (payload && typeof payload === 'object' && payload.workspaceId) {
-      targetWorkspaceId = payload.workspaceId;
-    }
-    const targetWorkspace = workspaces.find(ws => ws.id === targetWorkspaceId);
-    if (!targetWorkspace) return;
-
-    const nextIndex = targetWorkspace.boards.length + 1;
-
-    const boardNames = {
-      board: `Bảng mới ${nextIndex}`,
-      'workspace-view': `Bảng xem ${nextIndex}`,
-      template: `Bảng mẫu ${nextIndex}`
-    };
-
-    const boardDescriptions = {
-      board: 'Bảng mới được tạo từ Header',
-      'workspace-view': 'Bảng dạng xem không gian làm việc',
-      template: 'Bảng bắt đầu với mẫu'
-    };
-
-    let boardName = '';
-    let boardDescription = '';
-
-    if (payload && typeof payload === 'object' && payload.title) {
-      boardName = payload.title;
-      const visibilityLabel = payload.visibility === 'private'
-        ? 'Riêng tư'
-        : payload.visibility === 'public'
-          ? 'Công khai'
-          : 'Không gian làm việc';
-      boardDescription = `Quyền xem: ${visibilityLabel}`;
-    } else {
-      const option = typeof payload === 'string' ? payload : 'board';
-      boardName = boardNames[option] || `Bảng mới ${nextIndex}`;
-      boardDescription = boardDescriptions[option] || 'Bảng mới được tạo từ Header';
-    }
-
-    const newBoard = {
-      id: `board-${targetWorkspace.id}-${Date.now()}`,
-      name: boardName,
-      description: boardDescription,
-    };
-
-    const updatedWorkspace = {
-      ...targetWorkspace,
-      isOpen: true,
-      boards: [...targetWorkspace.boards, newBoard]
-    };
-
-    setWorkspaces(prev => prev.map(ws =>
-      ws.id === targetWorkspaceId ? updatedWorkspace : ws
-    ));
-
-    setActiveWorkspaceId(targetWorkspaceId);
-    setActiveSection('board');
-  };
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
-    <div className="min-h-screen bg-[#121517] text-[#9fadbc]">
-      <Header onCreateBoard={handleCreateBoard} />
-      <div className="flex">
-        <Sidebar
-          workspaces={workspaces}
-          onSelectSection={handleSelectSection}
-          activeWorkspace={activeWorkspace}
-          activeSection={activeSection}
-          onToggleWorkspace={toggleWorkspace}
-        />
-
-        <main className="flex-1 p-6 overflow-y-auto" style={{ minHeight: 'calc(100vh - 48px)' }}>
-          {activeSection === 'home' ? (
-            <HomeContent
-              workspace={activeWorkspace}
-              user={currentUser}
-              workspaces={workspaces}
-              onCreateWorkspace={handleCreateWorkspace}
-              onCreateBoard={handleCreateBoard}
-              onInviteMember={handleInviteMember}
-            />
-          ) : activeSection === 'members' ? (
-            <MemberContent workspace={activeWorkspace} onInviteMember={handleInviteMember} />
-          ) : activeSection === 'settings' ? (
-            <SettingContent workspace={activeWorkspace} />
-          ) : (
-            <ContentBoard workspace={activeWorkspace} workspaces={workspaces} onCreateBoard={handleCreateBoard} />
-          )}
-        </main>
-      </div>
-    </div>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
+        <Route path="/home" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
+      </Routes>
+   
   );
 }
 
