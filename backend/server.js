@@ -26,6 +26,18 @@ async function main() {
   app.set("io", io);
   registerSocket(io);
 
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `\nCổng ${PORT} đang được dùng (có thể backend đã chạy ở terminal khác).\n` +
+          `  Tắt process cũ:  lsof -i :${PORT}   rồi  kill <PID>\n` +
+          `  Hoặc đổi cổng:    API_PORT=4001 trong file .env\n`
+      );
+      process.exit(1);
+    }
+    throw err;
+  });
+
   server.listen(PORT, () => {
     const base = `http://localhost:${PORT}`;
     console.log("");
