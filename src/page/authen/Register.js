@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
 
 function Register() {
   const [username, setUsername] = useState('');
@@ -26,31 +25,59 @@ function Register() {
       return;
     }
 
+    // Kiểm tra email phải có đuôi @gmail.com
+    if (!email.endsWith('@gmail.com')) {
+      setError('email không tồn tại');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/register', {
+      // Lấy danh sách users đã đăng ký
+      const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+
+      // Kiểm tra email đã tồn tại
+      const existingUser = registeredUsers.find(u => u.email === email);
+      if (existingUser) {
+        setError('Email đã được sử dụng');
+        setLoading(false);
+        return;
+      }
+
+      // Kiểm tra username đã tồn tại
+      const existingUsername = registeredUsers.find(u => u.username === username);
+      if (existingUsername) {
+        setError('Tên người dùng đã được sử dụng');
+        setLoading(false);
+        return;
+      }
+
+      // Tạo user mới
+      const newUser = {
+        id: Date.now().toString(),
         username,
         email,
-        password
-      });
+        password, // Trong thực tế nên hash password
+        createdAt: new Date().toISOString()
+      };
 
-      // Lưu token vào localStorage
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Thêm vào danh sách
+      registeredUsers.push(newUser);
+      localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+
+      // Lưu thông tin user hiện tại
+      localStorage.setItem('token', 'demo-token-' + Date.now());
+      localStorage.setItem('user', JSON.stringify({
+        id: newUser.id,
+        username: newUser.username,
+        email: newUser.email
+      }));
 
       // Chuyển hướng tới dashboard
       navigate('/dashboard');
     } catch (err) {
-      if (!err.response) {
-        // Fallback tạm dùng khi backend chưa có
-        const demoUser = { username, email };
-        localStorage.setItem('token', 'demo-token');
-        localStorage.setItem('user', JSON.stringify(demoUser));
-        navigate('/dashboard');
-      } else {
-        setError(err.response?.data?.message || 'Đăng ký thất bại');
-      }
+      setError('Có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }

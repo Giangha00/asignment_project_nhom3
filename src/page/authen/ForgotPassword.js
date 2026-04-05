@@ -1,22 +1,43 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setError('');
+    setMessage('');
 
     if (!email) {
       setError('Vui lòng nhập email');
       return;
     }
 
-    // Tạm thời chỉ hiển thị thông báo, backend sẽ xử lý gửi email sau
-    setMessage(`Yêu cầu đặt lại mật khẩu đã được gửi tới ${email}.`);
+    // Kiểm tra email có tồn tại trong danh sách đã đăng ký không
+    const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+    const userExists = registeredUsers.find(u => u.email === email);
+
+    if (!userExists) {
+      setError('Email không tồn tại trong hệ thống');
+      return;
+    }
+
+    // Tạo OTP ngẫu nhiên (6 chữ số)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Lưu OTP vào localStorage
+    const otpData = {
+      otp,
+      email,
+      createdAt: new Date().toISOString()
+    };
+    localStorage.setItem('otpData', JSON.stringify(otpData));
+
+    // Chuyển hướng sang trang reset password
+    navigate('/reset-password');
     setEmail('');
   };
 
@@ -29,7 +50,7 @@ function ForgotPassword() {
         </p>
 
         {message && (
-          <div className="bg-green-100 text-green-700 px-4 py-3 rounded mb-6 border border-green-300">
+          <div className="bg-green-100 text-green-700 px-4 py-3 rounded mb-6 border border-green-300 text-sm">
             {message}
           </div>
         )}

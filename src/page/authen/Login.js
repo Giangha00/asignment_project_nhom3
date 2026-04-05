@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -15,27 +14,37 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
-        email,
-        password
-      });
+      // Lấy danh sách users đã đăng ký từ localStorage
+      const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
 
-      // Lưu token vào localStorage
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Tìm user có email khớp
+      const user = registeredUsers.find(u => u.email === email);
+
+      if (!user) {
+        setError('Email không tồn tại. Vui lòng đăng ký trước.');
+        setLoading(false);
+        return;
+      }
+
+      // Kiểm tra password
+      if (user.password !== password) {
+        setError('Mật khẩu không đúng.');
+        setLoading(false);
+        return;
+      }
+
+      // Đăng nhập thành công - lưu thông tin user hiện tại
+      localStorage.setItem('token', 'demo-token-' + Date.now());
+      localStorage.setItem('user', JSON.stringify({
+        id: user.id,
+        username: user.username,
+        email: user.email
+      }));
 
       // Chuyển hướng tới dashboard
       navigate('/dashboard');
     } catch (err) {
-      if (!err.response) {
-        // Fallback tạm dùng khi backend chưa có
-        const demoUser = { username: email.split('@')[0], email };
-        localStorage.setItem('token', 'demo-token');
-        localStorage.setItem('user', JSON.stringify(demoUser));
-        navigate('/dashboard');
-      } else {
-        setError(err.response?.data?.message || 'Đăng nhập thất bại');
-      }
+      setError('Có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }

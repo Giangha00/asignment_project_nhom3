@@ -4,6 +4,7 @@ import Login from './page/authen/Login';
 import Register from './page/authen/Register';
 import Dashboard from './page/Dashboard';
 import ForgotPassword from './page/authen/ForgotPassword';
+import ResetPassword from './page/authen/ResetPassword';
 import './App.css';
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
       </Routes>
