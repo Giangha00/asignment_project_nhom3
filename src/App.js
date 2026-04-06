@@ -1,27 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './page/authen/Login';
 import Register from './page/authen/Register';
 import Dashboard from './page/Dashboard';
 import ForgotPassword from './page/authen/ForgotPassword';
 import ResetPassword from './page/authen/ResetPassword';
 import Home from './page/home/Home';
+import BoardView from './page/board/BoardView';
 import './App.css';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Kiểm tra token khi app load
-    const token = localStorage.getItem('token');
-    setIsAuthenticated(!!token);
-    setLoading(false);
-  }, []);
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+  // Đọc token mỗi khi đổi URL để sau đăng nhập/đăng xuất không bị kẹt state cũ
+  // (trước đây isAuthenticated chỉ set một lần lúc mount nên đăng nhập xong vẫn bị đẩy về /login).
+  useLocation();
+  const isAuthenticated = !!localStorage.getItem('token');
 
   return (
       <Routes>
@@ -30,8 +22,9 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/home" element={isAuthenticated ? <Home /> : <Navigate to="/login" />} />
+        <Route path="/board/:boardId" element={isAuthenticated ? <BoardView /> : <Navigate to="/login" />} />
         <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
-        <Route path="/home" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
       </Routes>
    
   );

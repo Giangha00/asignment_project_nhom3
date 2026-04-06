@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../../components/Header";
 import Sidebar from "../../components/SideBarHome";
 import ContentBoard from "../../components/ContentBoard";
@@ -58,7 +58,10 @@ const initialWorkspaces = [
 ];
 
 function Home() {
-  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
+  const storedWorkspaces = localStorage.getItem('trelloWorkspaces');
+  const [workspaces, setWorkspaces] = useState(
+    storedWorkspaces ? JSON.parse(storedWorkspaces) : initialWorkspaces
+  );
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(initialWorkspaces[0].id);
   const [activeSection, setActiveSection] = useState('board');
 
@@ -69,12 +72,12 @@ function Home() {
     role: 'Quản trị viên'
   };
 
-  const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) ?? workspaces[0];
+  // Lưu workspaces vào localStorage mỗi khi thay đổi
+  useEffect(() => {
+    localStorage.setItem('trelloWorkspaces', JSON.stringify(workspaces));
+  }, [workspaces]);
 
-  const handleSelectWorkspace = (workspaceId) => {
-    setActiveWorkspaceId(workspaceId);
-    setActiveSection('board');
-  };
+  const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) ?? workspaces[0];
 
   const handleSelectSection = (section, workspaceId) => {
     setActiveWorkspaceId(workspaceId);
@@ -168,12 +171,16 @@ function Home() {
 
     if (payload && typeof payload === 'object' && payload.title) {
       boardName = payload.title;
-      const visibilityLabel = payload.visibility === 'private'
-        ? 'Riêng tư'
-        : payload.visibility === 'public'
-          ? 'Công khai'
-          : 'Không gian làm việc';
-      boardDescription = `Quyền xem: ${visibilityLabel}`;
+      if (payload.description && String(payload.description).trim()) {
+        boardDescription = String(payload.description).trim();
+      } else {
+        const visibilityLabel = payload.visibility === 'private'
+          ? 'Riêng tư'
+          : payload.visibility === 'public'
+            ? 'Công khai'
+            : 'Không gian làm việc';
+        boardDescription = `Quyền xem: ${visibilityLabel}`;
+      }
     } else {
       const option = typeof payload === 'string' ? payload : 'board';
       boardName = boardNames[option] || `Bảng mới ${nextIndex}`;

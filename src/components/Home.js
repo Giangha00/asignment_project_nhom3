@@ -1,13 +1,12 @@
 import React from 'react';
-import { 
-  Trello, 
-  Layout, 
-  Home, 
-  Users, 
-  Settings, 
-  CreditCard, 
-  Plus, 
-  ChevronDown 
+import {
+  Trello,
+  Layout,
+  Home,
+  Users,
+  Settings,
+  Plus,
+  ChevronDown,
 } from 'lucide-react'; // Cài đặt: npm install lucide-react
 
 const HomePage = () => {
