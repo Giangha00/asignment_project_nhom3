@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import Header from "../../components/Header";
 import Sidebar from "../../components/SideBarHome";
-import HomeContent from "../../components/HomeContent";
 import useLocalStorage from "../../hooks/useLocalStorage";
 
 const initialWorkspaces = [
@@ -55,9 +55,17 @@ const initialWorkspaces = [
   }
 ];
 
-function Home() {
+const WorkspaceDetailPage = () => {
+  const { workspaceId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [workspaces, setWorkspaces] = useLocalStorage('workspaces', initialWorkspaces);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspaces[0]?.id || 1);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(Number(workspaceId) || workspaces[0]?.id || 1);
+
+  useEffect(() => {
+    const id = Number(workspaceId) || workspaces[0]?.id || 1;
+    setActiveWorkspaceId(id);
+  }, [workspaceId, workspaces]);
 
   const currentUser = {
     name: 'Nguyễn Hưng',
@@ -66,23 +74,38 @@ function Home() {
     role: 'Quản trị viên'
   };
 
-  const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) || workspaces[0];
+  const activeWorkspace = useMemo(
+    () => workspaces.find(ws => ws.id === activeWorkspaceId) || workspaces[0],
+    [workspaces, activeWorkspaceId]
+  );
 
-  const handleSelectWorkspace = (workspaceId) => {
-    setActiveWorkspaceId(workspaceId);
-  };
+  const activeSection = useMemo(() => {
+    const parts = location.pathname.split('/').filter(Boolean);
+    const section = parts[parts.length - 1];
+    if (section === 'boards') return 'board';
+    if (section === 'members') return 'members';
+    if (section === 'settings') return 'settings';
+    return 'board';
+  }, [location.pathname]);
 
-  const toggleWorkspace = (workspaceId) => {
+  const toggleWorkspace = (workspaceIdToToggle) => {
     setWorkspaces(prev => prev.map(ws =>
-      ws.id === workspaceId ? { ...ws, isOpen: !ws.isOpen } : ws
+      ws.id === workspaceIdToToggle ? { ...ws, isOpen: !ws.isOpen } : ws
     ));
   };
 
   const handleDeleteWorkspace = (workspaceId) => {
-    setWorkspaces(prev => prev.filter(ws => ws.id !== workspaceId));
+    const remainingWorkspaces = workspaces.filter(ws => ws.id !== workspaceId);
+    setWorkspaces(remainingWorkspaces);
+
     if (activeWorkspaceId === workspaceId) {
-      const remainingWorkspaces = workspaces.filter(ws => ws.id !== workspaceId);
-      setActiveWorkspaceId(remainingWorkspaces[0]?.id || null);
+      if (remainingWorkspaces.length > 0) {
+        const nextWorkspaceId = remainingWorkspaces[0].id;
+        setActiveWorkspaceId(nextWorkspaceId);
+        navigate(`/workspace/${nextWorkspaceId}/boards`);
+      } else {
+        navigate('/home');
+      }
     }
   };
 
@@ -124,8 +147,8 @@ function Home() {
     setActiveWorkspaceId(workspace.id);
   };
 
-  const handleInviteMember = (workspaceId, email) => {
-    const targetWorkspace = workspaces.find(ws => ws.id === workspaceId);
+  const handleInviteMember = (workspaceIdToInvite, email) => {
+    const targetWorkspace = workspaces.find(ws => ws.id === workspaceIdToInvite);
     if (!targetWorkspace) return;
 
     const rawName = email.split('@')[0].replace(/[^a-zA-Z0-9]+/g, ' ').trim();
@@ -140,7 +163,7 @@ function Home() {
       .toUpperCase() || email.charAt(0).toUpperCase();
 
     const newMember = {
-      id: `member-${workspaceId}-${Date.now()}`,
+      id: `member-${workspaceIdToInvite}-${Date.now()}`,
       name,
       initials,
       handle: `@${email.split('@')[0]}`,
@@ -149,12 +172,12 @@ function Home() {
     };
 
     setWorkspaces(prev => prev.map(ws =>
-      ws.id === workspaceId ? { ...ws, members: [...ws.members, newMember] } : ws
+      ws.id === workspaceIdToInvite ? { ...ws, members: [...ws.members, newMember] } : ws
     ));
   };
 
   const handleCreateBoard = (payload = 'board') => {
-      let targetWorkspaceId = activeWorkspaceId ?? workspaces[0].id;
+    let targetWorkspaceId = activeWorkspaceId;
     if (payload && typeof payload === 'object' && payload.workspaceId) {
       targetWorkspaceId = payload.workspaceId;
     }
@@ -198,14 +221,8 @@ function Home() {
       description: boardDescription,
     };
 
-    const updatedWorkspace = {
-      ...targetWorkspace,
-      isOpen: true,
-      boards: [...targetWorkspace.boards, newBoard]
-    };
-
     setWorkspaces(prev => prev.map(ws =>
-      ws.id === targetWorkspaceId ? updatedWorkspace : ws
+      ws.id === targetWorkspaceId ? { ...ws, isOpen: true, boards: [...ws.boards, newBoard] } : ws
     ));
 
     setActiveWorkspaceId(targetWorkspaceId);
@@ -218,25 +235,25 @@ function Home() {
         <Sidebar
           workspaces={workspaces}
           activeWorkspaceId={activeWorkspaceId}
-          activeSection="home"
+          activeSection={activeSection}
           onToggleWorkspace={toggleWorkspace}
           onCreateWorkspace={handleCreateWorkspace}
           onDeleteWorkspace={handleDeleteWorkspace}
         />
-
         <main className="ml-[300px] flex-1 p-6 overflow-y-auto" style={{ minHeight: 'calc(100vh - 48px)' }}>
-          <HomeContent
-            workspace={activeWorkspace}
-            user={currentUser}
-            workspaces={workspaces}
-            onCreateWorkspace={handleCreateWorkspace}
-            onCreateBoard={handleCreateBoard}
-            onInviteMember={handleInviteMember}
-          />
+          <Outlet context={{
+            workspaces,
+            activeWorkspace,
+            currentUser,
+            activeWorkspaceId,
+            handleCreateBoard,
+            handleCreateWorkspace,
+            handleInviteMember
+          }} />
         </main>
       </div>
     </div>
-    );
-}
+  );
+};
 
-export default Home ;
+export default WorkspaceDetailPage;

@@ -1,72 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const ContentBoard = ({ workspace, workspaces, onCreateBoard }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [boardTitle, setBoardTitle] = useState('');
-  const [viewPermission, setViewPermission] = useState('workspace');
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(workspace.id);
-  const menuRef = useRef(null);
-
-  const visibilityOptions = [
-    { value: 'workspace', label: 'Không gian làm việc' },
-    { value: 'private', label: 'Riêng tư' },
-    { value: 'public', label: 'Công khai' }
-  ];
-
-  useEffect(() => {
-    const handleOutsideClick = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
-
-  const handleCreateClick = () => {
-    setMenuOpen((prev) => !prev);
-  };
-
-  const handleWorkspaceToggle = () => {
-    setWorkspaceOpen((prev) => !prev);
-  };
-
-  const handleWorkspaceSelect = (workspaceId) => {
-    setSelectedWorkspaceId(workspaceId);
-    setWorkspaceOpen(false);
-  };
-
-  const handleCancel = () => {
-    setMenuOpen(false);
-    setWorkspaceOpen(false);
-    setBoardTitle('');
-    setViewPermission('workspace');
-  };
-
-  const handleCreateSubmit = (event) => {
-    event.preventDefault();
-    if (!boardTitle.trim()) {
-      return;
-    }
-
-    const selectedWorkspace = workspaces?.find(ws => ws.id === selectedWorkspaceId) || workspace;
-
-    if (typeof onCreateBoard === 'function') {
-      onCreateBoard({
-        title: boardTitle.trim(),
-        workspaceId: selectedWorkspace.id,
-        visibility: viewPermission
-      });
-    }
-
-    handleCancel();
-  };
-
-  useEffect(() => {
-    setSelectedWorkspaceId(workspace.id);
-  }, [workspace.id]);
+  const navigate = useNavigate();
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -145,81 +81,12 @@ const ContentBoard = ({ workspace, workspaces, onCreateBoard }) => {
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {workspace.boards.map(boardItem => (
-            <button key={boardItem.id} className="group rounded-[28px] border border-[#30363f] bg-[#141b21] p-6 text-left transition hover:-translate-y-1">
+            <button key={boardItem.id} onClick={() => navigate('/home')} className="group rounded-[28px] border border-[#30363f] bg-[#141b21] p-6 text-left transition hover:-translate-y-1">
               <div className="mb-4 h-32 rounded-3xl bg-gradient-to-br from-[#8b5cf6] to-[#ec4899]" />
               <div className="text-sm font-semibold text-white">{boardItem.name}</div>
               <p className="mt-2 text-sm text-[#9fadbc]">{boardItem.description}</p>
             </button>
           ))}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={handleCreateClick}
-              className="flex w-full flex-col items-center justify-center rounded-[28px] border border-dashed border-[#3c444d] bg-[#10161b] p-6 text-[#9fadbc] transition hover:border-[#579dff] hover:text-white"
-            >
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#0e1b27] text-2xl">+</div>
-              <div className="text-sm font-semibold">Tạo bảng mới</div>
-            </button>
-            {menuOpen && (
-              <form onSubmit={handleCreateSubmit} className="absolute left-1/2 bottom-full z-20 mb-3 w-80 -translate-x-1/2 rounded-[18px] border border-[#3c444d] bg-[#141b21] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-                <div className="mb-4 text-lg font-semibold text-white">Tạo bảng</div>
-
-                <label className="mb-1 block text-sm text-[#9fadbc]">Tiêu đề bảng</label>
-                <input
-                  value={boardTitle}
-                  onChange={(e) => setBoardTitle(e.target.value)}
-                  placeholder="Nhập tên bảng"
-                  required
-                  className="mb-4 w-full rounded-xl border border-[#3c444d] bg-[#0f1720] px-3 py-2 text-white outline-none transition focus:border-[#579dff]"
-                />
-
-                <label className="mb-1 block text-sm text-[#9fadbc]">Không gian làm việc</label>
-                <div className="relative mb-4">
-                  <button
-                    type="button"
-                    onClick={handleWorkspaceToggle}
-                    className="w-full rounded-xl border border-[#3c444d] bg-[#0f1720] px-3 py-2 text-left text-[#e4edf4] outline-none transition hover:border-[#579dff]"
-                  >
-                    {workspaces?.find(ws => ws.id === selectedWorkspaceId)?.name || workspace.name}
-                  </button>
-                  {workspaceOpen && (
-                    <div className="absolute left-0 top-full z-30 mt-2 w-full overflow-hidden rounded-xl border border-[#3c444d] bg-[#0f1720] shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-                      {workspaces?.map(ws => (
-                        <button
-                          key={ws.id}
-                          type="button"
-                          onClick={() => handleWorkspaceSelect(ws.id)}
-                          className="w-full px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]"
-                        >
-                          <div className="font-medium">{ws.name}</div>
-                          <div className="text-xs text-[#8c9bab]">{ws.boards.length} bảng</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <label className="mb-1 block text-sm text-[#9fadbc]">Quyền xem</label>
-                <select
-                  value={viewPermission}
-                  onChange={(e) => setViewPermission(e.target.value)}
-                  className="mb-4 w-full rounded-xl border border-[#3c444d] bg-[#0f1720] px-3 py-2 text-white outline-none"
-                >
-                  {visibilityOptions.map(option => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-
-                <div className="flex justify-end gap-2">
-                  <button type="button" onClick={handleCancel} className="rounded-xl border border-[#3c444d] px-4 py-2 text-sm text-[#9fadbc] transition hover:bg-[#161f28]">
-                    Hủy
-                  </button>
-                  <button type="submit" className="rounded-xl bg-[#579dff] px-4 py-2 text-sm font-semibold text-[#1d2125] transition hover:bg-[#7fbfff]">
-                    Tạo mới
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
         </div>
       </div>
 
