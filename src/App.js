@@ -1,12 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './page/authen/Login';
-import Register from './page/authen/Register';
-import Dashboard from './page/Dashboard';
-import ForgotPassword from './page/authen/ForgotPassword';
-import ResetPassword from './page/authen/ResetPassword';
-import Home from './page/home/Home';
-import './App.css';
+import React, { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import Login from "./page/authen/Login";
+import Register from "./page/authen/Register";
+import ForgotPassword from "./page/authen/ForgotPassword";
+import ResetPassword from "./page/authen/ResetPassword";
+import Home from "./page/home/Home";
+import WorkspaceDetailPage from "./page/workspace/WorkspaceDetailPage";
+import BoardsPage from "./page/boards/BoardsPage";
+import MembersPage from "./page/members/MembersPage";
+import SettingsPage from "./page/settings/SettingsPage";
+
+import "./App.css";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -14,7 +23,7 @@ function App() {
 
   useEffect(() => {
     // Kiểm tra token khi app load
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     setIsAuthenticated(!!token);
     setLoading(false);
   }, []);
@@ -24,16 +33,32 @@ function App() {
   }
 
   return (
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
-        <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
-        <Route path="/home" element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
-      </Routes>
-   
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route
+        path="/home"
+        element={isAuthenticated ? <Home /> : <Navigate to="/login" />}
+      />
+      <Route
+        path="/workspace/:workspaceId/*"
+        element={isAuthenticated ? <WorkspaceDetailPage /> : <Navigate to="/login" />}
+      >
+        <Route index element={<BoardsPage />} />
+        <Route path="boards" element={<BoardsPage />} />
+        <Route path="members" element={<MembersPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+      </Route>
+      {/* Removed board detail route */}
+      <Route
+        path="/"
+        element={
+          isAuthenticated ? <Navigate to="/home" /> : <Navigate to="/login" />
+        }
+      />
+    </Routes>
   );
 }
 
