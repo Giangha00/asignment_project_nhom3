@@ -1,33 +1,33 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 
 function Register() {
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     // Kiểm tra mật khẩu
     if (password !== confirmPassword) {
-      setError('Mật khẩu không khớp');
+      setError("Mật khẩu không khớp");
       return;
     }
 
     if (password.length < 6) {
-      setError('Mật khẩu phải có ít nhất 6 ký tự');
+      setError("Mật khẩu phải có ít nhất 6 ký tự");
       return;
     }
 
     // Kiểm tra email phải có đuôi @gmail.com
-    if (!email.endsWith('@gmail.com')) {
-      setError('email không tồn tại');
+    if (!email.endsWith("@gmail.com")) {
+      setError("email không tồn tại");
       return;
     }
 
@@ -35,20 +35,24 @@ function Register() {
 
     try {
       // Lấy danh sách users đã đăng ký
-      const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      const registeredUsers = JSON.parse(
+        localStorage.getItem("registeredUsers") || "[]",
+      );
 
       // Kiểm tra email đã tồn tại
-      const existingUser = registeredUsers.find(u => u.email === email);
+      const existingUser = registeredUsers.find((u) => u.email === email);
       if (existingUser) {
-        setError('Email đã được sử dụng');
+        setError("Email đã được sử dụng");
         setLoading(false);
         return;
       }
 
       // Kiểm tra username đã tồn tại
-      const existingUsername = registeredUsers.find(u => u.username === username);
+      const existingUsername = registeredUsers.find(
+        (u) => u.username === username,
+      );
       if (existingUsername) {
-        setError('Tên người dùng đã được sử dụng');
+        setError("Tên người dùng đã được sử dụng");
         setLoading(false);
         return;
       }
@@ -59,25 +63,28 @@ function Register() {
         username,
         email,
         password, // Trong thực tế nên hash password
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
 
       // Thêm vào danh sách
       registeredUsers.push(newUser);
-      localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+      localStorage.setItem("registeredUsers", JSON.stringify(registeredUsers));
 
       // Lưu thông tin user hiện tại
-      localStorage.setItem('token', 'demo-token-' + Date.now());
-      localStorage.setItem('user', JSON.stringify({
-        id: newUser.id,
-        username: newUser.username,
-        email: newUser.email
-      }));
+      localStorage.setItem("token", "demo-token-" + Date.now());
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+        }),
+      );
 
       // Chuyển hướng tới dashboard
-      navigate('/dashboard');
+      navigate("/");
     } catch (err) {
-      setError('Có lỗi xảy ra. Vui lòng thử lại.');
+      setError("Có lỗi xảy ra. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -86,17 +93,22 @@ function Register() {
   return (
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
       <div className="bg-white p-10 rounded-lg shadow-2xl w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">Đăng Ký</h2>
-        
+        <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
+          Đăng Ký
+        </h2>
+
         {error && (
           <div className="bg-red-100 text-red-700 px-4 py-3 rounded mb-6 border border-red-300">
             {error}
           </div>
         )}
-        
+
         <form onSubmit={handleRegister}>
           <div className="mb-5">
-            <label htmlFor="username" className="block text-gray-700 font-semibold mb-2 text-sm">
+            <label
+              htmlFor="username"
+              className="block text-gray-700 font-semibold mb-2 text-sm"
+            >
               Tên người dùng:
             </label>
             <input
@@ -111,7 +123,10 @@ function Register() {
           </div>
 
           <div className="mb-5">
-            <label htmlFor="email" className="block text-gray-700 font-semibold mb-2 text-sm">
+            <label
+              htmlFor="email"
+              className="block text-gray-700 font-semibold mb-2 text-sm"
+            >
               Email:
             </label>
             <input
@@ -126,7 +141,10 @@ function Register() {
           </div>
 
           <div className="mb-5">
-            <label htmlFor="password" className="block text-gray-700 font-semibold mb-2 text-sm">
+            <label
+              htmlFor="password"
+              className="block text-gray-700 font-semibold mb-2 text-sm"
+            >
               Mật khẩu:
             </label>
             <input
@@ -141,7 +159,10 @@ function Register() {
           </div>
 
           <div className="mb-6">
-            <label htmlFor="confirmPassword" className="block text-gray-700 font-semibold mb-2 text-sm">
+            <label
+              htmlFor="confirmPassword"
+              className="block text-gray-700 font-semibold mb-2 text-sm"
+            >
               Xác nhận mật khẩu:
             </label>
             <input
@@ -160,12 +181,18 @@ function Register() {
             disabled={loading}
             className="w-full py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Đang đăng ký...' : 'Đăng Ký'}
+            {loading ? "Đang đăng ký..." : "Đăng Ký"}
           </button>
         </form>
 
         <p className="text-center text-gray-600 text-sm mt-6">
-          Đã có tài khoản? <Link to="/login" className="text-indigo-600 font-semibold hover:text-purple-600">Đăng nhập</Link>
+          Đã có tài khoản?{" "}
+          <Link
+            to="/login"
+            className="text-indigo-600 font-semibold hover:text-purple-600"
+          >
+            Đăng nhập
+          </Link>
         </p>
       </div>
     </div>
