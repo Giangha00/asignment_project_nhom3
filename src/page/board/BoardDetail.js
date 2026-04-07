@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeftRight,
   Calendar,
@@ -14,22 +14,24 @@ import {
   SquareArrowOutUpRight,
   Star,
   X,
-} from 'lucide-react';
-import Header from '../../components/Header';
+} from "lucide-react";
+import Header from "../../components/Header";
 
-const STORAGE_KEY = 'workspaces';
-const LEGACY_STORAGE_KEY = 'trelloWorkspaces';
+const STORAGE_KEY = "workspaces";
+const LEGACY_STORAGE_KEY = "trelloWorkspaces";
 
 const DEFAULT_LISTS = [
-  { id: 'list-todo', title: 'Todo', cards: [] },
-  { id: 'list-doing', title: 'Doing', cards: [] },
-  { id: 'list-review', title: 'Review', cards: [] },
-  { id: 'list-done', title: 'Done', cards: [] },
+  { id: "list-todo", title: "Todo", cards: [] },
+  { id: "list-doing", title: "Doing", cards: [] },
+  { id: "list-review", title: "Review", cards: [] },
+  { id: "list-done", title: "Done", cards: [] },
 ];
 
 function loadWorkspaces() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+    const raw =
+      localStorage.getItem(STORAGE_KEY) ||
+      localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -71,7 +73,7 @@ function persistBoardLists(boardId, workspaceId, lists) {
     return {
       ...ws,
       boards: (ws.boards || []).map((b) =>
-        b.id === boardId ? { ...b, lists } : b
+        b.id === boardId ? { ...b, lists } : b,
       ),
     };
   });
@@ -81,12 +83,12 @@ function persistBoardLists(boardId, workspaceId, lists) {
   }
 }
 
-const DND_MIME = 'application/json';
+const DND_MIME = "application/json";
 
 function parseDragCardPayload(e) {
   try {
     const raw =
-      e.dataTransfer.getData(DND_MIME) || e.dataTransfer.getData('text/plain');
+      e.dataTransfer.getData(DND_MIME) || e.dataTransfer.getData("text/plain");
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (data?.cardId && data?.fromListId) return data;
@@ -96,21 +98,23 @@ function parseDragCardPayload(e) {
   return null;
 }
 
-function BoardView() {
+function BoardDetail() {
   const { boardId: boardIdParam } = useParams();
   const navigate = useNavigate();
-  const boardId = boardIdParam ? decodeURIComponent(boardIdParam) : '';
+  const boardId = boardIdParam ? decodeURIComponent(boardIdParam) : "";
 
   const [bannerVisible, setBannerVisible] = useState(true);
   const [plannerOpen, setPlannerOpen] = useState(true);
-  const [listColumns, setListColumns] = useState(() => getListsForBoard(boardId));
+  const [listColumns, setListColumns] = useState(() =>
+    getListsForBoard(boardId),
+  );
   const [addingForListId, setAddingForListId] = useState(null);
-  const [composerTitle, setComposerTitle] = useState('');
+  const [composerTitle, setComposerTitle] = useState("");
   const [draggingCardId, setDraggingCardId] = useState(null);
   const [dragOverListId, setDragOverListId] = useState(null);
   const [listComposerOpen, setListComposerOpen] = useState(false);
-  const [newListTitle, setNewListTitle] = useState('');
-  const [newListError, setNewListError] = useState('');
+  const [newListTitle, setNewListTitle] = useState("");
+  const [newListError, setNewListError] = useState("");
 
   const resolved = useMemo(() => {
     const workspaces = loadWorkspaces();
@@ -120,26 +124,26 @@ function BoardView() {
   useEffect(() => {
     setListColumns(getListsForBoard(boardId));
     setAddingForListId(null);
-    setComposerTitle('');
+    setComposerTitle("");
     setDraggingCardId(null);
     setDragOverListId(null);
     setListComposerOpen(false);
-    setNewListTitle('');
-    setNewListError('');
+    setNewListTitle("");
+    setNewListError("");
   }, [boardId]);
 
-  const boardName = resolved?.board?.name ?? 'Bảng';
-  const workspaceName = resolved?.workspace?.name ?? '';
+  const boardName = resolved?.board?.name ?? "Bảng";
+  const workspaceName = resolved?.workspace?.name ?? "";
   const workspaceId = resolved?.workspace?.id ?? null;
 
   const openComposer = (listId) => {
     setAddingForListId(listId);
-    setComposerTitle('');
+    setComposerTitle("");
   };
 
   const closeComposer = () => {
     setAddingForListId(null);
-    setComposerTitle('');
+    setComposerTitle("");
   };
 
   const submitCard = (listId) => {
@@ -147,7 +151,7 @@ function BoardView() {
     if (!trimmed || workspaceId == null) return;
     const card = { id: `card-${Date.now()}`, title: trimmed };
     const next = listColumns.map((l) =>
-      l.id === listId ? { ...l, cards: [...(l.cards || []), card] } : l
+      l.id === listId ? { ...l, cards: [...(l.cards || []), card] } : l,
     );
     setListColumns(next);
     persistBoardLists(boardId, workspaceId, next);
@@ -156,7 +160,7 @@ function BoardView() {
 
   const showTips = () => {
     window.alert(
-      'Mẹo: Dán liên kết vào ô tiêu đề để tạo thẻ với xem trước trang web. Bạn cũng có thể nhấn Enter để thêm nhanh sau khi gõ xong.'
+      "Mẹo: Dán liên kết vào ô tiêu đề để tạo thẻ với xem trước trang web. Bạn cũng có thể nhấn Enter để thêm nhanh sau khi gõ xong.",
     );
   };
 
@@ -186,8 +190,8 @@ function BoardView() {
   const handleCardDragStart = (e, listId, card) => {
     const payload = JSON.stringify({ cardId: card.id, fromListId: listId });
     e.dataTransfer.setData(DND_MIME, payload);
-    e.dataTransfer.setData('text/plain', payload);
-    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData("text/plain", payload);
+    e.dataTransfer.effectAllowed = "move";
     setDraggingCardId(card.id);
   };
 
@@ -198,7 +202,7 @@ function BoardView() {
 
   const handleListDragOver = (e, listId) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
     setDragOverListId(listId);
   };
 
@@ -219,14 +223,14 @@ function BoardView() {
 
   const closeListComposer = () => {
     setListComposerOpen(false);
-    setNewListTitle('');
-    setNewListError('');
+    setNewListTitle("");
+    setNewListError("");
   };
 
   const submitNewList = () => {
     const trimmed = newListTitle.trim();
     if (!trimmed) {
-      setNewListError('Vui lòng nhập tên danh sách.');
+      setNewListError("Vui lòng nhập tên danh sách.");
       return;
     }
     if (workspaceId == null) return;
@@ -242,14 +246,16 @@ function BoardView() {
   };
 
   const handleHeaderCreateBoard = () => {
-    navigate('/home');
+    navigate("/home");
   };
 
   if (!resolved) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#0f1214] px-4 text-center text-[#9fadbc]">
         <p className="text-lg text-white">Không tìm thấy bảng</p>
-        <p className="max-w-md text-sm">Bảng có thể đã bị xóa hoặc liên kết không đúng.</p>
+        <p className="max-w-md text-sm">
+          Bảng có thể đã bị xóa hoặc liên kết không đúng.
+        </p>
         <Link
           to="/home"
           className="rounded-md bg-[#579dff] px-4 py-2 text-sm font-semibold text-[#0c1f3d] hover:bg-[#6cabff]"
@@ -273,17 +279,16 @@ function BoardView() {
         `,
       }}
     >
-      <Header
-        onCreateBoard={handleHeaderCreateBoard}
-        backTo="/home"
-      />
+      <Header onCreateBoard={handleHeaderCreateBoard} backTo="/home" />
 
       <div className="relative z-10 flex min-h-0 flex-1">
         {/* Sidebar trình lập kế hoạch */}
         {plannerOpen && (
           <aside className="hidden w-[280px] shrink-0 flex-col border-r border-white/10 bg-[#1d2125]/80 backdrop-blur-sm lg:flex">
             <div className="border-b border-white/10 p-4">
-              <h2 className="text-sm font-semibold text-white">Trình lập kế hoạch</h2>
+              <h2 className="text-sm font-semibold text-white">
+                Trình lập kế hoạch
+              </h2>
               <p className="mt-2 text-xs leading-relaxed text-[#8b9bab]">
                 Kết nối lịch để xem thẻ có hạn ở đây.
               </p>
@@ -314,11 +319,21 @@ function BoardView() {
           {/* Header bảng */}
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h1 className="truncate text-lg font-bold text-white sm:text-xl">{boardName}</h1>
-              <button type="button" className="rounded-md p-1.5 text-[#9fadbc] hover:bg-white/10" aria-label="Đánh dấu sao">
+              <h1 className="truncate text-lg font-bold text-white sm:text-xl">
+                {boardName}
+              </h1>
+              <button
+                type="button"
+                className="rounded-md p-1.5 text-[#9fadbc] hover:bg-white/10"
+                aria-label="Đánh dấu sao"
+              >
                 <Star className="h-4 w-4" />
               </button>
-              <button type="button" className="rounded-md p-1.5 text-[#9fadbc] hover:bg-white/10" aria-label="Lọc">
+              <button
+                type="button"
+                className="rounded-md p-1.5 text-[#9fadbc] hover:bg-white/10"
+                aria-label="Lọc"
+              >
                 <LayoutGrid className="h-4 w-4" />
               </button>
               <span className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[#9fadbc]">
@@ -328,7 +343,7 @@ function BoardView() {
             </div>
             <div className="flex items-center gap-2">
               <div className="flex -space-x-1">
-                {['NH', 'A', 'B'].map((x) => (
+                {["NH", "A", "B"].map((x) => (
                   <span
                     key={x}
                     className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#1d2125] bg-[#4b9e7a] text-[10px] font-bold text-white"
@@ -343,21 +358,27 @@ function BoardView() {
               >
                 Chia sẻ
               </button>
-              <button type="button" className="rounded-md p-1.5 text-[#9fadbc] hover:bg-white/10">
+              <button
+                type="button"
+                className="rounded-md p-1.5 text-[#9fadbc] hover:bg-white/10"
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             </div>
           </div>
 
           {workspaceName ? (
-            <p className="px-4 pb-2 text-xs text-[#6b7785]">Không gian: {workspaceName}</p>
+            <p className="px-4 pb-2 text-xs text-[#6b7785]">
+              Không gian: {workspaceName}
+            </p>
           ) : null}
 
           {bannerVisible && (
             <div className="mx-3 mb-3 flex items-start gap-2 rounded-md border border-emerald-800/60 bg-emerald-950/50 px-3 py-2 text-sm text-emerald-100 sm:mx-4">
               <span className="mt-0.5 shrink-0 text-emerald-400">●</span>
               <p className="min-w-0 flex-1 leading-snug">
-                Bảng này có thể được đặt chế độ công khai hoặc riêng tư tùy cài đặt khi tạo. Chỉ thành viên được mời mới chỉnh sửa.
+                Bảng này có thể được đặt chế độ công khai hoặc riêng tư tùy cài
+                đặt khi tạo. Chỉ thành viên được mời mới chỉnh sửa.
               </p>
               <button
                 type="button"
@@ -383,7 +404,9 @@ function BoardView() {
                   className="flex w-[272px] shrink-0 flex-col max-h-[calc(100vh-220px)] rounded-xl bg-[#101204]/85 backdrop-blur-sm"
                 >
                   <div className="flex items-center justify-between gap-2 px-3 py-2">
-                    <h2 className="truncate text-sm font-semibold text-[#d1d7e0]">{list.title}</h2>
+                    <h2 className="truncate text-sm font-semibold text-[#d1d7e0]">
+                      {list.title}
+                    </h2>
                     <div className="flex shrink-0 items-center gap-0.5">
                       <button
                         type="button"
@@ -392,7 +415,10 @@ function BoardView() {
                       >
                         <ArrowLeftRight className="h-4 w-4" />
                       </button>
-                      <button type="button" className="rounded p-1 text-[#9fadbc] hover:bg-white/10">
+                      <button
+                        type="button"
+                        className="rounded p-1 text-[#9fadbc] hover:bg-white/10"
+                      >
                         <MoreHorizontal className="h-4 w-4" />
                       </button>
                     </div>
@@ -400,8 +426,8 @@ function BoardView() {
                   <div
                     className={`min-h-0 flex-1 space-y-2 overflow-y-auto px-2 pb-2 transition-colors ${
                       dragOverListId === list.id && draggingCardId
-                        ? 'rounded-lg bg-[#1a3a5c]/40 ring-2 ring-[#579dff] ring-inset'
-                        : ''
+                        ? "rounded-lg bg-[#1a3a5c]/40 ring-2 ring-[#579dff] ring-inset"
+                        : ""
                     }`}
                     onDragOver={(e) => handleListDragOver(e, list.id)}
                     onDragLeave={handleListDragLeave}
@@ -411,11 +437,13 @@ function BoardView() {
                       <div
                         key={card.id}
                         draggable
-                        onDragStart={(e) => handleCardDragStart(e, list.id, card)}
+                        onDragStart={(e) =>
+                          handleCardDragStart(e, list.id, card)
+                        }
                         onDragEnd={handleCardDragEnd}
                         onDragOver={(e) => {
                           e.preventDefault();
-                          e.dataTransfer.dropEffect = 'move';
+                          e.dataTransfer.dropEffect = "move";
                           setDragOverListId(list.id);
                         }}
                         onDrop={(e) => {
@@ -425,7 +453,7 @@ function BoardView() {
                         }}
                         aria-grabbed={draggingCardId === card.id}
                         className={`cursor-grab rounded-lg bg-[#22272b] px-3 py-2 text-sm text-[#d1d7e0] shadow-sm active:cursor-grabbing hover:bg-[#2c333a] ${
-                          draggingCardId === card.id ? 'opacity-40' : ''
+                          draggingCardId === card.id ? "opacity-40" : ""
                         }`}
                       >
                         {card.title}
@@ -435,8 +463,8 @@ function BoardView() {
                       <p
                         className={`min-h-[72px] rounded-lg border border-dashed px-2 py-6 text-center text-xs ${
                           dragOverListId === list.id && draggingCardId
-                            ? 'border-[#579dff]/60 bg-[#1a3a5c]/25 text-[#9fadbc]'
-                            : 'border-white/10 text-[#6b7785]'
+                            ? "border-[#579dff]/60 bg-[#1a3a5c]/25 text-[#9fadbc]"
+                            : "border-white/10 text-[#6b7785]"
                         }`}
                       >
                         Kéo thẻ vào đây hoặc thêm thẻ mới
@@ -450,7 +478,7 @@ function BoardView() {
                         value={composerTitle}
                         onChange={(e) => setComposerTitle(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
+                          if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
                             submitCard(list.id);
                           }
@@ -515,10 +543,10 @@ function BoardView() {
                   value={newListTitle}
                   onChange={(e) => {
                     setNewListTitle(e.target.value);
-                    if (newListError) setNewListError('');
+                    if (newListError) setNewListError("");
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                       e.preventDefault();
                       submitNewList();
                     }
@@ -555,8 +583,8 @@ function BoardView() {
                 type="button"
                 onClick={() => {
                   setListComposerOpen(true);
-                  setNewListTitle('');
-                  setNewListError('');
+                  setNewListTitle("");
+                  setNewListError("");
                 }}
                 className="flex h-fit min-w-[272px] shrink-0 items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-3 text-sm font-medium text-white backdrop-blur-sm transition hover:bg-white/15"
               >
@@ -582,7 +610,9 @@ function BoardView() {
             type="button"
             onClick={() => setPlannerOpen((v) => !v)}
             className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium hover:bg-[#3d454c] ${
-              plannerOpen ? 'border-b-2 border-[#579dff] text-white' : 'text-[#9fadbc] hover:text-white'
+              plannerOpen
+                ? "border-b-2 border-[#579dff] text-white"
+                : "text-[#9fadbc] hover:text-white"
             }`}
           >
             <Calendar className="h-3.5 w-3.5" />
@@ -608,4 +638,4 @@ function BoardView() {
   );
 }
 
-export default BoardView;
+export default BoardDetail;
