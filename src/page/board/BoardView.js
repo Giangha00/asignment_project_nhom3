@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import Header from '../../components/Header';
 
-const STORAGE_KEY = 'trelloWorkspaces';
+const STORAGE_KEY = 'workspaces';
+const LEGACY_STORAGE_KEY = 'trelloWorkspaces';
 
 const DEFAULT_LISTS = [
   { id: 'list-todo', title: 'Cần làm', cards: [] },
@@ -27,7 +28,7 @@ const DEFAULT_LISTS = [
 
 function loadWorkspaces() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -74,6 +75,9 @@ function persistBoardLists(boardId, workspaceId, lists) {
     };
   });
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  if (localStorage.getItem(LEGACY_STORAGE_KEY)) {
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(next));
+  }
 }
 
 const DND_MIME = 'application/json';

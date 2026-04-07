@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Header from "../../components/Header";
 import Sidebar from "../../components/SideBarHome";
-import ContentBoard from "../../components/ContentBoard";
-import MemberContent from "../../components/MemberContent";
 import HomeContent from "../../components/HomeContent";
-import SettingContent from "../../components/SettingContent";
+import useLocalStorage from "../../hooks/useLocalStorage";
 
 const initialWorkspaces = [
   {
@@ -58,12 +56,12 @@ const initialWorkspaces = [
 ];
 
 function Home() {
-  const storedWorkspaces = localStorage.getItem('trelloWorkspaces');
-  const [workspaces, setWorkspaces] = useState(
-    storedWorkspaces ? JSON.parse(storedWorkspaces) : initialWorkspaces
+  const [workspaces, setWorkspaces] = useLocalStorage(
+    'workspaces',
+    initialWorkspaces,
+    ['trelloWorkspaces']
   );
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(initialWorkspaces[0].id);
-  const [activeSection, setActiveSection] = useState('board');
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspaces[0]?.id || 1);
 
   const currentUser = {
     name: 'Nguyễn Hưng',
@@ -72,17 +70,7 @@ function Home() {
     role: 'Quản trị viên'
   };
 
-  // Lưu workspaces vào localStorage mỗi khi thay đổi
-  useEffect(() => {
-    localStorage.setItem('trelloWorkspaces', JSON.stringify(workspaces));
-  }, [workspaces]);
-
-  const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) ?? workspaces[0];
-
-  const handleSelectSection = (section, workspaceId) => {
-    setActiveWorkspaceId(workspaceId);
-    setActiveSection(section);
-  };
+  const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) || workspaces[0];
 
   const toggleWorkspace = (workspaceId) => {
     setWorkspaces(prev => prev.map(ws =>
@@ -90,15 +78,37 @@ function Home() {
     ));
   };
 
-  const handleCreateWorkspace = (workspaceName) => {
-    const newWorkspace = {
-      id: Date.now(),
-      name: workspaceName || `Workspace mới ${workspaces.length + 1}`,
-      color: 'bg-[#6d5de7]',
-      isOpen: true,
-      hasBilling: false,
-      boards: [],
-      members: [
+  const handleDeleteWorkspace = (workspaceId) => {
+    setWorkspaces(prev => prev.filter(ws => ws.id !== workspaceId));
+    if (activeWorkspaceId === workspaceId) {
+      const remainingWorkspaces = workspaces.filter(ws => ws.id !== workspaceId);
+      setActiveWorkspaceId(remainingWorkspaces[0]?.id || null);
+    }
+  };
+
+  const handleCreateWorkspace = (newWorkspace) => {
+    // Tạo board mặc định cho workspace
+    const defaultBoard = {
+      id: `board-${Date.now()}`,
+      name: 'Bảng',
+      description: 'Bảng khởi đầu để quản lý công việc trực quan',
+      color: '#6d5de7',
+    };
+
+    const nextWorkspaceId = workspaces.length
+      ? Math.max(...workspaces.map(ws => Number(ws.id))) + 1
+      : 1;
+
+    const workspace = {
+      id: newWorkspace.id ? Number(newWorkspace.id) : nextWorkspaceId,
+      name: newWorkspace.name || `Workspace mới ${workspaces.length + 1}`,
+      type: newWorkspace.type || 'default',
+      description: newWorkspace.description || '',
+      color: newWorkspace.color ? `bg-[${newWorkspace.color}]` : 'bg-[#6d5de7]',
+      isOpen: newWorkspace.isOpen !== undefined ? newWorkspace.isOpen : true,
+      hasBilling: newWorkspace.hasBilling || false,
+      boards: [defaultBoard, ...(newWorkspace.boards || [])],
+      members: newWorkspace.members || [
         {
           id: `member-${Date.now()}`,
           name: currentUser.name,
@@ -110,9 +120,8 @@ function Home() {
       ]
     };
 
-    setWorkspaces(prev => [...prev, newWorkspace]);
-    setActiveWorkspaceId(newWorkspace.id);
-    setActiveSection('board');
+    setWorkspaces(prev => [...prev, workspace]);
+    setActiveWorkspaceId(workspace.id);
   };
 
   const handleInviteMember = (workspaceId, email) => {
@@ -204,7 +213,6 @@ function Home() {
     ));
 
     setActiveWorkspaceId(targetWorkspaceId);
-    setActiveSection('board');
   };
 
   return (
@@ -213,29 +221,22 @@ function Home() {
       <div className="flex">
         <Sidebar
           workspaces={workspaces}
-          onSelectSection={handleSelectSection}
-          activeWorkspace={activeWorkspace}
-          activeSection={activeSection}
+          activeWorkspaceId={activeWorkspaceId}
+          activeSection="home"
           onToggleWorkspace={toggleWorkspace}
+          onCreateWorkspace={handleCreateWorkspace}
+          onDeleteWorkspace={handleDeleteWorkspace}
         />
 
-        <main className="flex-1 p-6 overflow-y-auto" style={{ minHeight: 'calc(100vh - 48px)' }}>
-          {activeSection === 'home' ? (
-            <HomeContent
-              workspace={activeWorkspace}
-              user={currentUser}
-              workspaces={workspaces}
-              onCreateWorkspace={handleCreateWorkspace}
-              onCreateBoard={handleCreateBoard}
-              onInviteMember={handleInviteMember}
-            />
-          ) : activeSection === 'members' ? (
-            <MemberContent workspace={activeWorkspace} onInviteMember={handleInviteMember} />
-          ) : activeSection === 'settings' ? (
-            <SettingContent workspace={activeWorkspace} />
-          ) : (
-            <ContentBoard workspace={activeWorkspace} workspaces={workspaces} onCreateBoard={handleCreateBoard} />
-          )}
+        <main className="ml-[300px] flex-1 p-6 overflow-y-auto" style={{ minHeight: 'calc(100vh - 48px)' }}>
+          <HomeContent
+            workspace={activeWorkspace}
+            user={currentUser}
+            workspaces={workspaces}
+            onCreateWorkspace={handleCreateWorkspace}
+            onCreateBoard={handleCreateBoard}
+            onInviteMember={handleInviteMember}
+          />
         </main>
       </div>
     </div>

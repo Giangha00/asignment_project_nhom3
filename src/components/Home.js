@@ -8,6 +8,7 @@ import {
   Plus,
   ChevronDown,
 } from 'lucide-react'; // Cài đặt: npm install lucide-react
+import { Link } from 'react-router-dom';
 
 const HomePage = () => {
   return (
@@ -31,7 +32,7 @@ const HomePage = () => {
         {/* 2. Left Sidebar */}
         <aside className="w-64 p-4 space-y-6 hidden md:block">
           <ul className="space-y-2">
-            <li className="flex items-center gap-3 px-3 py-2 bg-[#e9f2ff14] text-[#579dff] rounded-md cursor-pointer">
+            <li className="flex items-center gap-3 px-3 py-2 bg-[#e9f2ff14] text-[#579dff] rounded-md cursor-default block">
               <Layout size={18} /> <span className="font-medium">Bảng</span>
             </li>
             <li className="flex items-center gap-3 px-3 py-2 hover:bg-[#3c444d] rounded-md cursor-pointer">
@@ -51,9 +52,9 @@ const HomePage = () => {
               </div>
               {/* Workspace sub-menu */}
               <div className="ml-9 space-y-1 text-sm">
-                <p className="py-1.5 flex items-center gap-3 hover:text-white cursor-pointer"><Layout size={14}/> Bảng</p>
-                <p className="py-1.5 flex items-center gap-3 hover:text-white cursor-pointer"><Users size={14}/> Thành viên</p>
-                <p className="py-1.5 flex items-center gap-3 hover:text-white cursor-pointer"><Settings size={14}/> Cài đặt</p>
+                <Link to="/workspace/1/boards" className="py-1.5 flex items-center gap-3 hover:text-white cursor-pointer"><Layout size={14}/> Bảng</Link>
+                <Link to="/members" className="py-1.5 flex items-center gap-3 hover:text-white cursor-pointer"><Users size={14}/> Thành viên</Link>
+                <Link to="/settings" className="py-1.5 flex items-center gap-3 hover:text-white cursor-pointer"><Settings size={14}/> Cài đặt</Link>
               </div>
             </div>
           </div>
