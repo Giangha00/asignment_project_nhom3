@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 import Sidebar from "../../components/SideBarHome";
 import HomeContent from "../../components/HomeContent";
@@ -56,6 +57,7 @@ const initialWorkspaces = [
 ];
 
 function Home() {
+  const navigate = useNavigate();
   const [workspaces, setWorkspaces] = useLocalStorage(
     'workspaces',
     initialWorkspaces,
@@ -149,7 +151,9 @@ function Home() {
     };
 
     setWorkspaces(prev => prev.map(ws =>
-      ws.id === workspaceId ? { ...ws, members: [...ws.members, newMember] } : ws
+      ws.id === workspaceId
+        ? { ...ws, members: [...(Array.isArray(ws.members) ? ws.members : []), newMember] }
+        : ws
     ));
   };
 
@@ -160,8 +164,11 @@ function Home() {
     }
     const targetWorkspace = workspaces.find(ws => ws.id === targetWorkspaceId);
     if (!targetWorkspace) return;
+    const targetBoards = Array.isArray(targetWorkspace.boards)
+      ? targetWorkspace.boards
+      : [];
 
-    const nextIndex = targetWorkspace.boards.length + 1;
+    const nextIndex = targetBoards.length + 1;
 
     const boardNames = {
       board: `Bảng mới ${nextIndex}`,
@@ -205,7 +212,7 @@ function Home() {
     const updatedWorkspace = {
       ...targetWorkspace,
       isOpen: true,
-      boards: [...targetWorkspace.boards, newBoard]
+      boards: [...targetBoards, newBoard]
     };
 
     setWorkspaces(prev => prev.map(ws =>
@@ -213,6 +220,7 @@ function Home() {
     ));
 
     setActiveWorkspaceId(targetWorkspaceId);
+    navigate(`/workspace/${targetWorkspaceId}/board/${encodeURIComponent(newBoard.id)}`);
   };
 
   return (

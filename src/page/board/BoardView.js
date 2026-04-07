@@ -21,9 +21,10 @@ const STORAGE_KEY = 'workspaces';
 const LEGACY_STORAGE_KEY = 'trelloWorkspaces';
 
 const DEFAULT_LISTS = [
-  { id: 'list-todo', title: 'Cần làm', cards: [] },
-  { id: 'list-doing', title: 'Đang làm', cards: [] },
-  { id: 'list-done', title: 'Đã xong', cards: [] },
+  { id: 'list-todo', title: 'Todo', cards: [] },
+  { id: 'list-doing', title: 'Doing', cards: [] },
+  { id: 'list-review', title: 'Review', cards: [] },
+  { id: 'list-done', title: 'Done', cards: [] },
 ];
 
 function loadWorkspaces() {

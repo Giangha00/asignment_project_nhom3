@@ -22,9 +22,9 @@ function coverClassForBoard(boardId, index) {
   return BOARD_COVER_CLASSES[hash % BOARD_COVER_CLASSES.length];
 }
 
-function BoardCard({ board, index }) {
+function BoardCard({ workspaceId, board, index }) {
   const cover = coverClassForBoard(board.id, index);
-  const to = `/board/${encodeURIComponent(board.id)}`;
+  const to = `/workspace/${encodeURIComponent(workspaceId)}/board/${encodeURIComponent(board.id)}`;
 
   return (
     <Link
@@ -58,7 +58,7 @@ const ContentBoard = ({ workspace, workspaces, onCreateBoard }) => {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {boards.map((board, index) => (
           <div key={board.id} className="aspect-[16/10] min-h-[120px]">
-            <BoardCard board={board} index={index} />
+            <BoardCard workspaceId={workspace?.id} board={board} index={index} />
           </div>
         ))}
         <div className="aspect-[16/10] min-h-[120px]">

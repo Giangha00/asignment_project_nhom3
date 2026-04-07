@@ -1,21 +1,33 @@
-import React from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import Login from "./page/authen/Login";
 import Register from "./page/authen/Register";
 import ForgotPassword from "./page/authen/ForgotPassword";
 import ResetPassword from "./page/authen/ResetPassword";
 import Home from "./page/home/Home";
-import BoardView from "./page/board/BoardView";
-import WorkspaceDetailPage from "./page/workspace/WorkspaceDetailPage";
-import BoardsPage from "./page/boards/BoardsPage";
-import MembersPage from "./page/members/MembersPage";
-import SettingsPage from "./page/settings/SettingsPage";
+import WorkspaceUnifiedPage from "./page/workspace/WorkspaceUnifiedPage";
 
 import "./App.css";
 
 function App() {
-  useLocation();
-  const isAuthenticated = !!localStorage.getItem("token");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Kiểm tra token khi app load
+    const token = localStorage.getItem("token");
+    setIsAuthenticated(!!token);
+    setLoading(false);
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <Routes>
@@ -28,18 +40,11 @@ function App() {
         element={isAuthenticated ? <Home /> : <Navigate to="/login" />}
       />
       <Route
-        path="/board/:boardId"
-        element={isAuthenticated ? <BoardView /> : <Navigate to="/login" />}
+        path="/workspace/:workspaceId/:section?/:boardId?"
+        element={
+          isAuthenticated ? <WorkspaceUnifiedPage /> : <Navigate to="/login" />
+        }
       />
-      <Route
-        path="/workspace/:workspaceId/*"
-        element={isAuthenticated ? <WorkspaceDetailPage /> : <Navigate to="/login" />}
-      >
-        <Route index element={<BoardsPage />} />
-        <Route path="boards" element={<BoardsPage />} />
-        <Route path="members" element={<MembersPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-      </Route>
       <Route
         path="/"
         element={
