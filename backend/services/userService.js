@@ -1,4 +1,5 @@
 const User = require("../models/userModel");
+const emailCrypto = require("../utils/emailCrypto");
 const { HttpError } = require("../utils/httpError");
 const { assertObjectId } = require("./validation");
 const otpRequestService = require("./otpRequestService");
@@ -25,7 +26,15 @@ async function updateMe(userId, body) {
 }
 
 async function listUsers() {
-  return User.find({ deletedAt: null }).limit(200).lean();
+  const rows = await User.find({ deletedAt: null }).limit(200).lean();
+  return rows.map((r) => {
+    const email = r.emailEncrypted
+      ? emailCrypto.decryptEmail(r.emailEncrypted)
+      : r.email || "";
+    const { emailEncrypted, emailLookup, ...rest } = r;
+    delete rest.failedPasswordAttempts;
+    return { ...rest, email };
+  });
 }
 
 async function softDeleteUser(id) {
@@ -49,10 +58,11 @@ async function changePasswordWithOtp(userId, body) {
   const user = await User.findById(userId).select("+passwordHash");
   if (!user || user.deletedAt) throw new HttpError(404, "Not found");
 
-  await otpRequestService.verifyOtpForUser(userId, user.email, "change_password", otpCode);
+  await otpRequestService.verifyOtpForUser(userId, user.getPlainEmail(), "change_password", otpCode);
 
   user.passwordHash = await User.hashPassword(newPassword);
   user.emailVerified = true;
+  user.failedPasswordAttempts = 0;
   await user.save();
 }
 

@@ -20,7 +20,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
-  await authService.resetPasswordWithForgotOtp(req.body || {});
+  await authService.resetPasswordForgot(req.body || {});
   res.json({ ok: true, message: "Đã đặt lại mật khẩu. Bạn có thể đăng nhập bằng mật khẩu mới." });
 });
 

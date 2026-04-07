@@ -25,18 +25,9 @@ function ForgotPassword() {
       return;
     }
 
-    // Tạo OTP ngẫu nhiên (6 chữ số)
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    localStorage.removeItem('otpData');
+    sessionStorage.setItem('forgotPasswordResetEmail', email);
 
-    // Lưu OTP vào localStorage
-    const otpData = {
-      otp,
-      email,
-      createdAt: new Date().toISOString()
-    };
-    localStorage.setItem('otpData', JSON.stringify(otpData));
-
-    // Chuyển hướng sang trang reset password
     navigate('/reset-password');
     setEmail('');
   };
@@ -46,7 +37,7 @@ function ForgotPassword() {
       <div className="bg-white p-10 rounded-lg shadow-2xl w-full max-w-md">
         <h2 className="text-2xl font-bold text-center text-gray-800 mb-4">Quên mật khẩu</h2>
         <p className="text-gray-600 text-sm mb-6 text-center">
-          Nhập email để nhận hướng dẫn đặt lại mật khẩu.
+          Nhập email đã đăng ký để tiếp tục đặt lại mật khẩu.
         </p>
 
         {message && (
@@ -81,7 +72,7 @@ function ForgotPassword() {
             type="submit"
             className="w-full py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition"
           >
-            Gửi yêu cầu
+            Tiếp tục
           </button>
         </form>
 
