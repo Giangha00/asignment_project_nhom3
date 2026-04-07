@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 
-const Header = ({ onCreateBoard }) => {
-  const [user, setUser] = useState({ name: 'Nguyễn Hưng', initials: 'NH', email: 'hungnguyen05112003@gmail.com' });
+const Header = ({ onCreateBoard, backTo, trialBadge }) => {
+  const [user] = useState({ name: 'Nguyễn Hưng', initials: 'NH', email: 'hungnguyen05112003@gmail.com' });
   const [searchText, setSearchText] = useState('');
   const [recentSearches, setRecentSearches] = useState(['Bảng Trello của tôi', 'Bảng Demo', 'Thông tin của nhóm']);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -78,9 +79,20 @@ const Header = ({ onCreateBoard }) => {
   return (
     <nav className="h-12 px-2 flex items-center justify-between bg-[#1d2125] border-b border-[#3c444d] text-[#9fadbc] sticky top-0 z-50">
       
-      {/* 1. Left Section: Logo chuẩn Trello */}
+      {/* 1. Left Section: (tuỳ chọn) Quay lại + Logo Trello */}
       <div className="flex items-center gap-1">
-        <button className="p-2 hover:bg-[#3c444d] rounded-sm transition">
+        {backTo ? (
+          <Link
+            to={backTo}
+            className="p-2 text-[#dee4ea] hover:bg-[#3c444d] rounded-sm transition"
+            aria-label="Quay lại"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </Link>
+        ) : null}
+        <button type="button" className="p-2 hover:bg-[#3c444d] rounded-sm transition">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z" /></svg>
         </button>
         
@@ -132,7 +144,7 @@ const Header = ({ onCreateBoard }) => {
           )}
         </form>
         <div className="relative" ref={menuRef}>
-          <button onClick={handleCreateClick} className="shrink-0 px-3 py-1.5 bg-[#579dff] hover:bg-[#85b8ff] text-[#1d2125] rounded-sm font-bold text-sm transition">
+          <button type="button" onClick={handleCreateClick} className="shrink-0 px-3 py-1.5 bg-[#579dff] hover:bg-[#85b8ff] text-[#1d2125] rounded-sm font-bold text-sm transition">
             Tạo mới
           </button>
           {menuOpen && (
@@ -141,6 +153,7 @@ const Header = ({ onCreateBoard }) => {
                 {createOptions.map(option => (
                   <button
                     key={option.key}
+                    type="button"
                     onClick={() => handleOptionSelect(option)}
                     className="w-full rounded-[12px] px-3 py-3 text-left text-sm text-[#e4edf4] transition hover:bg-[#2b3650]"
                   >
@@ -151,6 +164,11 @@ const Header = ({ onCreateBoard }) => {
             </div>
           )}
         </div>
+        {trialBadge ? (
+          <span className="hidden shrink-0 rounded-full border border-[#3c444d] px-2.5 py-0.5 text-xs text-[#dee4ea] lg:inline">
+            {trialBadge}
+          </span>
+        ) : null}
       </div>
 
       {/* 3. Right Section: Các Logo được sửa lại đẹp hơn theo hình mẫu */}

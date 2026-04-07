@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 import Sidebar from "../../components/SideBarHome";
 import HomeContent from "../../components/HomeContent";
@@ -56,7 +57,12 @@ const initialWorkspaces = [
 ];
 
 function Home() {
-  const [workspaces, setWorkspaces] = useLocalStorage('workspaces', initialWorkspaces);
+  const navigate = useNavigate();
+  const [workspaces, setWorkspaces] = useLocalStorage(
+    'workspaces',
+    initialWorkspaces,
+    ['trelloWorkspaces']
+  );
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspaces[0]?.id || 1);
 
   const currentUser = {
@@ -67,10 +73,6 @@ function Home() {
   };
 
   const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) || workspaces[0];
-
-  const handleSelectWorkspace = (workspaceId) => {
-    setActiveWorkspaceId(workspaceId);
-  };
 
   const toggleWorkspace = (workspaceId) => {
     setWorkspaces(prev => prev.map(ws =>
@@ -149,7 +151,9 @@ function Home() {
     };
 
     setWorkspaces(prev => prev.map(ws =>
-      ws.id === workspaceId ? { ...ws, members: [...ws.members, newMember] } : ws
+      ws.id === workspaceId
+        ? { ...ws, members: [...(Array.isArray(ws.members) ? ws.members : []), newMember] }
+        : ws
     ));
   };
 
@@ -160,8 +164,11 @@ function Home() {
     }
     const targetWorkspace = workspaces.find(ws => ws.id === targetWorkspaceId);
     if (!targetWorkspace) return;
+    const targetBoards = Array.isArray(targetWorkspace.boards)
+      ? targetWorkspace.boards
+      : [];
 
-    const nextIndex = targetWorkspace.boards.length + 1;
+    const nextIndex = targetBoards.length + 1;
 
     const boardNames = {
       board: `Bảng mới ${nextIndex}`,
@@ -180,12 +187,16 @@ function Home() {
 
     if (payload && typeof payload === 'object' && payload.title) {
       boardName = payload.title;
-      const visibilityLabel = payload.visibility === 'private'
-        ? 'Riêng tư'
-        : payload.visibility === 'public'
-          ? 'Công khai'
-          : 'Không gian làm việc';
-      boardDescription = `Quyền xem: ${visibilityLabel}`;
+      if (payload.description && String(payload.description).trim()) {
+        boardDescription = String(payload.description).trim();
+      } else {
+        const visibilityLabel = payload.visibility === 'private'
+          ? 'Riêng tư'
+          : payload.visibility === 'public'
+            ? 'Công khai'
+            : 'Không gian làm việc';
+        boardDescription = `Quyền xem: ${visibilityLabel}`;
+      }
     } else {
       const option = typeof payload === 'string' ? payload : 'board';
       boardName = boardNames[option] || `Bảng mới ${nextIndex}`;
@@ -201,7 +212,7 @@ function Home() {
     const updatedWorkspace = {
       ...targetWorkspace,
       isOpen: true,
-      boards: [...targetWorkspace.boards, newBoard]
+      boards: [...targetBoards, newBoard]
     };
 
     setWorkspaces(prev => prev.map(ws =>
@@ -209,6 +220,7 @@ function Home() {
     ));
 
     setActiveWorkspaceId(targetWorkspaceId);
+    navigate(`/workspace/${targetWorkspaceId}/board/${encodeURIComponent(newBoard.id)}`);
   };
 
   return (

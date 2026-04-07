@@ -1,10 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
-function useLocalStorage(key, initialValue) {
+function useLocalStorage(key, initialValue, fallbackKeys = []) {
   const [storedValue, setStoredValue] = useState(() => {
     try {
       const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      if (item) {
+        return JSON.parse(item);
+      }
+
+      for (const fallbackKey of fallbackKeys) {
+        const fallbackItem = window.localStorage.getItem(fallbackKey);
+        if (fallbackItem) {
+          return JSON.parse(fallbackItem);
+        }
+      }
+
+      return initialValue;
     } catch (error) {
       console.error(`Error reading localStorage key "${key}":`, error);
       return initialValue;

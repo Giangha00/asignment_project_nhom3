@@ -10,10 +10,7 @@ import Register from "./page/authen/Register";
 import ForgotPassword from "./page/authen/ForgotPassword";
 import ResetPassword from "./page/authen/ResetPassword";
 import Home from "./page/home/Home";
-import WorkspaceDetailPage from "./page/workspace/WorkspaceDetailPage";
-import BoardsPage from "./page/boards/BoardsPage";
-import MembersPage from "./page/members/MembersPage";
-import SettingsPage from "./page/settings/SettingsPage";
+import WorkspaceUnifiedPage from "./page/workspace/WorkspaceUnifiedPage";
 
 import "./App.css";
 
@@ -43,15 +40,11 @@ function App() {
         element={isAuthenticated ? <Home /> : <Navigate to="/login" />}
       />
       <Route
-        path="/workspace/:workspaceId/*"
-        element={isAuthenticated ? <WorkspaceDetailPage /> : <Navigate to="/login" />}
-      >
-        <Route index element={<BoardsPage />} />
-        <Route path="boards" element={<BoardsPage />} />
-        <Route path="members" element={<MembersPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-      </Route>
-      {/* Removed board detail route */}
+        path="/workspace/:workspaceId/:section?/:boardId?"
+        element={
+          isAuthenticated ? <WorkspaceUnifiedPage /> : <Navigate to="/login" />
+        }
+      />
       <Route
         path="/"
         element={
