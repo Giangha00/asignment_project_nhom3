@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 
+const FORGOT_EMAIL_KEY = 'forgotPasswordResetEmail';
+
 function ResetPassword() {
-  const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const email = sessionStorage.getItem(FORGOT_EMAIL_KEY);
+    if (!email) {
+      setError('Vui lòng nhập email ở bước quên mật khẩu trước.');
+    }
+  }, []);
 
   const handleResetPassword = (e) => {
     e.preventDefault();
@@ -17,35 +25,13 @@ function ResetPassword() {
     setLoading(true);
 
     try {
-      // Lấy OTP từ localStorage
-      const otpData = JSON.parse(localStorage.getItem('otpData') || '{}');
-
-      if (!otpData.otp || !otpData.email) {
-        setError('Vui lòng yêu cầu OTP trước');
+      const email = sessionStorage.getItem(FORGOT_EMAIL_KEY);
+      if (!email) {
+        setError('Vui lòng nhập email ở bước quên mật khẩu trước.');
         setLoading(false);
         return;
       }
 
-      // Kiểm tra OTP
-      if (otp !== otpData.otp) {
-        setError('OTP không đúng');
-        setLoading(false);
-        return;
-      }
-
-      // Kiểm tra OTP hết hạn (1 phút)
-      const otpTime = new Date(otpData.createdAt).getTime();
-      const currentTime = new Date().getTime();
-      const otpExpireTime = 1 * 60 * 1000; // 1 phút
-
-      if (currentTime - otpTime > otpExpireTime) {
-        setError('OTP đã hết hạn. Vui lòng yêu cầu OTP mới');
-        localStorage.removeItem('otpData');
-        setLoading(false);
-        return;
-      }
-
-      // Kiểm tra mật khẩu mới
       if (newPassword !== confirmPassword) {
         setError('Mật khẩu mới không khớp');
         setLoading(false);
@@ -58,22 +44,18 @@ function ResetPassword() {
         return;
       }
 
-      // Lấy danh sách users
       const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
 
-      // Tìm user và cập nhật mật khẩu
-      const userIndex = registeredUsers.findIndex(u => u.email === otpData.email);
+      const userIndex = registeredUsers.findIndex(u => u.email === email);
       if (userIndex !== -1) {
         registeredUsers[userIndex].password = newPassword;
         localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
       }
 
-      // Xóa OTP data
-      localStorage.removeItem('otpData');
+      sessionStorage.removeItem(FORGOT_EMAIL_KEY);
 
       setMessage('✅ Mật khẩu đã được đặt lại thành công!');
-      
-      // Chuyển hướng tới login sau 2 giây
+
       setTimeout(() => {
         navigate('/login');
       }, 2000);
@@ -88,7 +70,7 @@ function ResetPassword() {
     <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
       <div className="bg-white p-10 rounded-lg shadow-2xl w-full max-w-md">
         <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Đặt lại mật khẩu</h2>
-        <p className="text-gray-600 text-sm text-center mb-6">Nhập OTP và mật khẩu mới của bạn</p>
+        <p className="text-gray-600 text-sm text-center mb-6">Nhập mật khẩu mới của bạn</p>
 
         {error && (
           <div className="bg-red-100 text-red-700 px-4 py-3 rounded mb-6 border border-red-300">
@@ -103,23 +85,6 @@ function ResetPassword() {
         )}
 
         <form onSubmit={handleResetPassword}>
-          <div className="mb-5">
-            <label htmlFor="otp" className="block text-gray-700 font-semibold mb-2 text-sm">
-              Mã OTP:
-            </label>
-            <input
-              type="text"
-              id="otp"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              required
-              placeholder="Nhập mã OTP"
-              maxLength="6"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-            />
-            <p className="text-gray-500 text-xs mt-2">💡 Mã OTP có hiệu lực 1 phút</p>
-          </div>
-
           <div className="mb-5">
             <label htmlFor="newPassword" className="block text-gray-700 font-semibold mb-2 text-sm">
               Mật khẩu mới:
@@ -165,7 +130,7 @@ function ResetPassword() {
 
         </p>
 
-    
+
         
       </div>
     </div>

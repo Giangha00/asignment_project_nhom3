@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { HttpError } = require("./utils/httpError");
+const { HttpError, jsonBodyForHttpError } = require("./utils/httpError");
 
 require("./models/userModel");
 require("./models/userSessionModel");
@@ -71,7 +71,7 @@ function createApp() {
 
   app.use((err, _req, res, _next) => {
     if (err instanceof HttpError) {
-      return res.status(err.status).json({ error: err.message });
+      return res.status(err.status).json(jsonBodyForHttpError(err));
     }
     console.error(err);
     res.status(500).json({ error: "Internal server error" });

@@ -73,17 +73,8 @@ async function sendPasswordChangeOtp(userId) {
   if (!user || user.deletedAt) throw new HttpError(404, "Not found");
   return createAndSendOtp({
     userId,
-    email: user.email,
+    email: user.getPlainEmail(),
     otpType: "change_password",
-  });
-}
-
-/** Quên mật khẩu: gửi OTP loại reset_password (không cần đăng nhập). */
-async function sendForgotPasswordOtp(user) {
-  return createAndSendOtp({
-    userId: user._id,
-    email: user.email,
-    otpType: "reset_password",
   });
 }
 
@@ -192,7 +183,6 @@ module.exports = {
   listOtpRequests,
   createOtpRequest,
   sendPasswordChangeOtp,
-  sendForgotPasswordOtp,
   verifyOtpForUser,
   verifyOtpForEmail,
   getOtpRequest,
