@@ -24,7 +24,6 @@ function ForgotPassword() {
     try {
       const response = await axios.post('http://localhost:4000/api/auth/forgot-password', { email });
       setMessage(response.data.message);
-      sessionStorage.setItem('forgotPasswordResetEmail', email);
       setTimeout(() => {
         navigate('/reset-password');
       }, 2000);

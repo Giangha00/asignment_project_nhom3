@@ -40,10 +40,6 @@ function Register() {
         password,
         fullName: username,
       });
-
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-      }
       navigate("/");
     } catch (err) {
       const apiMessage = err.response?.data?.message;

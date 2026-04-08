@@ -46,9 +46,6 @@ function ResetPassword() {
       }
 
       const response = await axios.post('http://localhost:4000/api/auth/reset-password', { email, newPassword });
-
-      sessionStorage.removeItem(FORGOT_EMAIL_KEY);
-      setMessage("✅ Mật khẩu đã được đặt lại thành công!");
       setTimeout(() => {
         navigate("/");
       }, 2000);
