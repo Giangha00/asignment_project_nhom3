@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import axios from 'axios';
 
 const FORGOT_EMAIL_KEY = "forgotPasswordResetEmail";
 
@@ -18,7 +19,7 @@ function ResetPassword() {
     }
   }, []);
 
-  const handleResetPassword = (e) => {
+  const handleResetPassword = async (e) => {
     e.preventDefault();
     setError("");
     setMessage("");
@@ -44,28 +45,15 @@ function ResetPassword() {
         return;
       }
 
-      const registeredUsers = JSON.parse(
-        localStorage.getItem("registeredUsers") || "[]",
-      );
-
-      const userIndex = registeredUsers.findIndex((u) => u.email === email);
-      if (userIndex !== -1) {
-        registeredUsers[userIndex].password = newPassword;
-        localStorage.setItem(
-          "registeredUsers",
-          JSON.stringify(registeredUsers),
-        );
-      }
+      const response = await axios.post('http://localhost:4000/api/auth/reset-password', { email, newPassword });
 
       sessionStorage.removeItem(FORGOT_EMAIL_KEY);
-
       setMessage("✅ Mật khẩu đã được đặt lại thành công!");
-
       setTimeout(() => {
         navigate("/");
       }, 2000);
     } catch (err) {
-      setError("Có lỗi xảy ra. Vui lòng thử lại.");
+      setError(err.response?.data?.message || "Không thể kết nối đến server. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }

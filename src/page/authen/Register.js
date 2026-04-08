@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import axios from 'axios';
 
 function Register() {
   const [username, setUsername] = useState("");
@@ -27,64 +28,27 @@ function Register() {
 
     // Kiểm tra email phải có đuôi @gmail.com
     if (!email.endsWith("@gmail.com")) {
-      setError("email không tồn tại");
+      setError("Email phải có đuôi @gmail.com");
       return;
     }
 
     setLoading(true);
 
     try {
-      // Lấy danh sách users đã đăng ký
-      const registeredUsers = JSON.parse(
-        localStorage.getItem("registeredUsers") || "[]",
-      );
-
-      // Kiểm tra email đã tồn tại
-      const existingUser = registeredUsers.find((u) => u.email === email);
-      if (existingUser) {
-        setError("Email đã được sử dụng");
-        setLoading(false);
-        return;
-      }
-
-      // Kiểm tra username đã tồn tại
-      const existingUsername = registeredUsers.find(
-        (u) => u.username === username,
-      );
-      if (existingUsername) {
-        setError("Tên người dùng đã được sử dụng");
-        setLoading(false);
-        return;
-      }
-
-      // Tạo user mới
-      const newUser = {
-        id: Date.now().toString(),
-        username,
+      const response = await axios.post('http://localhost:4000/api/auth/register', {
         email,
-        password, // Trong thực tế nên hash password
-        createdAt: new Date().toISOString(),
-      };
+        password,
+        fullName: username,
+      });
 
-      // Thêm vào danh sách
-      registeredUsers.push(newUser);
-      localStorage.setItem("registeredUsers", JSON.stringify(registeredUsers));
-
-      // Lưu thông tin user hiện tại
-      localStorage.setItem("token", "demo-token-" + Date.now());
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: newUser.id,
-          username: newUser.username,
-          email: newUser.email,
-        }),
-      );
-
-      // Chuyển hướng tới dashboard
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+      }
       navigate("/");
     } catch (err) {
-      setError("Có lỗi xảy ra. Vui lòng thử lại.");
+      const apiMessage = err.response?.data?.message;
+      const errorMessage = apiMessage || err.message || 'Có lỗi xảy ra';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
