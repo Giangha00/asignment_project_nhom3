@@ -8,6 +8,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
   const [workspaceName, setWorkspaceName] = useState('');
   const [workspaceType, setWorkspaceType] = useState('');
   const [workspaceDescription, setWorkspaceDescription] = useState('');
+  const [workspaceVisibility, setWorkspaceVisibility] = useState('private');
   const [workspaceColor, setWorkspaceColor] = useState('#2f67ff');
   const [editingWorkspace, setEditingWorkspace] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -28,6 +29,9 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
     return color;
   };
 
+  const getVisibilityLabel = (visibility) =>
+    visibility === 'public' ? 'Công khai' : 'Riêng tư';
+
   const navigateToSection = (workspaceId, section) => {
     if (!workspaceId) return;
     if (section === 'home') {
@@ -46,7 +50,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
     const apiPayload = {
       name: workspaceName.trim(),
       description: workspaceDescription.trim(),
-      visibility: 'private',
+      visibility: workspaceVisibility,
     };
 
     try {
@@ -77,6 +81,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
       setWorkspaceName('');
       setWorkspaceType('');
       setWorkspaceDescription('');
+      setWorkspaceVisibility('private');
       setWorkspaceColor('#2f67ff');
       setShowCreateWorkspace(false);
     } catch (error) {
@@ -128,6 +133,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
     setWorkspaceName(workspace.name || '');
     setWorkspaceType(workspace.type === 'default' ? '' : (workspace.type || ''));
     setWorkspaceDescription(workspace.description || '');
+    setWorkspaceVisibility(workspace.visibility || 'private');
     setWorkspaceColor(normalizeColorForApi(workspace.color) || '#2f67ff');
     setShowCreateWorkspace(false);
   };
@@ -144,6 +150,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
     const apiPayload = {
       name: desiredName,
       description: desiredDescription,
+      visibility: workspaceVisibility,
     };
 
     try {
@@ -159,6 +166,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
           name: desiredName,
           description: desiredDescription,
           type: workspaceType || editingWorkspace.type || 'default',
+          visibility: workspaceVisibility,
           color: normalizeColorForApi(workspaceColor),
         });
       }
@@ -227,7 +235,10 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
                       <div className={`w-6 h-6 ${ws.color} rounded-[3px] flex items-center justify-center text-xs font-bold text-white`}>
                         {ws.name.charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-sm font-semibold truncate w-36 text-left">{ws.name}</span>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="text-sm font-semibold truncate w-36 text-left">{ws.name}</span>
+                        <span className="text-[11px] text-[#9fadbc]">{getVisibilityLabel(ws.visibility)}</span>
+                      </div>
                     </div>
                     <svg className={`transition-transform duration-200 ${ws.isOpen ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
                   </button>
@@ -307,15 +318,18 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
       {/* Modal Tạo / Sửa Workspace */}
       {(showCreateWorkspace || editingWorkspace) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-0 w-full max-w-4xl max-h-[90vh] overflow-auto flex">
+          <div className="relative bg-white rounded-lg p-0 w-full max-w-4xl max-h-[90vh] overflow-auto flex">
             {/* Left Section - Form */}
             <div className="flex-1 p-8">
               <button
                 onClick={() => {
                   setShowCreateWorkspace(false);
                   setEditingWorkspace(null);
+                  setWorkspaceVisibility('private');
                 }}
-                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl"
+                type="button"
+                className="absolute top-4 right-4 z-10 text-gray-500 hover:text-gray-700 text-2xl"
+                aria-label="Đóng form"
               >
                 ✕
               </button>
@@ -361,6 +375,19 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
                     <option value="education">Giáo dục</option>
                     <option value="personal">Cá nhân</option>
                     <option value="other">Khác</option>
+                  </select>
+                </div>
+
+                {/* Chế độ xem */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">Chế độ xem</label>
+                  <select
+                    value={workspaceVisibility}
+                    onChange={(e) => setWorkspaceVisibility(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  >
+                    <option value="private">Riêng tư</option>
+                    <option value="public">Công khai</option>
                   </select>
                 </div>
 

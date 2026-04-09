@@ -12,6 +12,13 @@ const HomeContent = ({ workspace, user, workspaces, onCreateWorkspace, onCreateB
     [workspaces]
   );
 
+  const getVisibilityMeta = (visibility) => {
+    if (visibility === 'public') {
+      return { label: 'Công khai', icon: '🌐' };
+    }
+    return { label: 'Riêng tư', icon: '🔒' };
+  };
+
   const handleCreateWorkspaceSubmit = (event) => {
     event.preventDefault();
     const name = workspaceName.trim();
@@ -104,14 +111,19 @@ const HomeContent = ({ workspace, user, workspaces, onCreateWorkspace, onCreateB
       <section className="space-y-4">
         {workspaces.map((ws) => {
           const boards = ws.boards || [];
+          const visibility = getVisibilityMeta(ws.visibility);
 
           return (
             <article key={ws.id} className="rounded-[24px] border border-[#30363f] bg-[#181f25] p-6 shadow-sm">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className={`h-7 w-7 rounded-md ${ws.color || 'bg-[#2f67ff]'}`} aria-hidden />
                     <h2 className="text-2xl font-bold text-white">{ws.name}</h2>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#3c444d] bg-[#10161b] px-2.5 py-1 text-xs text-[#9fadbc]">
+                      <span aria-hidden>{visibility.icon}</span>
+                      {visibility.label}
+                    </span>
                   </div>
                   <p className="mt-2 text-sm text-[#8c9bab]">
                     Thành viên: {ws.members?.length || 0} • Bảng: {boards.length}

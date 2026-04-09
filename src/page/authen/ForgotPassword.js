@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+const FORGOT_EMAIL_KEY = "forgotPasswordResetEmail";
+
 function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -23,6 +25,7 @@ function ForgotPassword() {
 
     try {
       const response = await axios.post('http://localhost:4000/api/auth/forgot-password', { email });
+      sessionStorage.setItem(FORGOT_EMAIL_KEY, email.trim());
       setMessage(response.data.message);
       setTimeout(() => {
         navigate('/reset-password');

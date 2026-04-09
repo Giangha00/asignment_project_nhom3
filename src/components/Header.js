@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const Header = ({ onCreateBoard, backTo, trialBadge }) => {
+  const navigate = useNavigate();
   const [user] = useState(() => {
     try {
       const raw = localStorage.getItem('userProfile');
@@ -81,6 +83,15 @@ const Header = ({ onCreateBoard, backTo, trialBadge }) => {
     if (typeof onCreateBoard === 'function') {
       onCreateBoard(option.key);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userProfile');
+    localStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('forgotPasswordResetEmail');
+    setUserMenuOpen(false);
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -240,7 +251,13 @@ const Header = ({ onCreateBoard, backTo, trialBadge }) => {
                 <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">Tạo Không gian làm việc</button>
                 <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">Trợ giúp</button>
                 <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">Phím tắt</button>
-                <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">Đăng xuất</button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]"
+                >
+                  Đăng xuất
+                </button>
               </div>
             </div>
           )}
