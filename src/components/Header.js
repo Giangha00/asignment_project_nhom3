@@ -2,7 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
 const Header = ({ onCreateBoard, backTo, trialBadge }) => {
-  const [user] = useState({ name: 'Nguyễn Hưng', initials: 'NH', email: 'hungnguyen05112003@gmail.com' });
+  const [user] = useState(() => {
+    try {
+      const raw = localStorage.getItem('userProfile');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const name = parsed.fullName || parsed.name || parsed.email || 'User';
+        const initials = (String(name).trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('') || 'U').toUpperCase();
+        return { name, initials, email: parsed.email || '' };
+      }
+    } catch {}
+    return { name: 'User', initials: 'U', email: '' };
+  });
   const [searchText, setSearchText] = useState('');
   const [recentSearches, setRecentSearches] = useState(['Bảng Trello của tôi', 'Bảng Demo', 'Thông tin của nhóm']);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -11,10 +22,6 @@ const Header = ({ onCreateBoard, backTo, trialBadge }) => {
   const menuRef = useRef(null);
   const searchRef = useRef(null);
   const userRef = useRef(null);
-
-  useEffect(() => {
-    localStorage.setItem('userProfile', JSON.stringify(user));
-  }, [user]);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {

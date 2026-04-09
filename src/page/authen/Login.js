@@ -16,6 +16,14 @@ function Login() {
 
     try {
       const response = await axios.post('http://localhost:4000/api/auth/login', { email, password });
+      const token = response.data?.token;
+      if (token) {
+        localStorage.setItem('token', token);
+      }
+      const user = response.data?.user;
+      if (user) {
+        localStorage.setItem('userProfile', JSON.stringify(user));
+      }
 
       // Chuyển hướng tới dashboard
       navigate("/home");

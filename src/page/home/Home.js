@@ -58,19 +58,30 @@ const initialWorkspaces = [
 
 function Home() {
   const navigate = useNavigate();
+  const currentUser = (() => {
+    try {
+      const raw = localStorage.getItem('userProfile');
+      if (raw) {
+        const u = JSON.parse(raw);
+        const name = u.fullName || u.name || u.email || 'User';
+        const initials = (String(name).trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('') || 'U').toUpperCase();
+        return { ...u, name, initials, email: u.email || '' };
+      }
+    } catch {}
+    return {
+      name: 'Nguyễn Hưng',
+      initials: 'NH',
+      email: 'hungnguyen05112003@example.com',
+      role: 'Quản trị viên'
+    };
+  })();
+
+  const userStorageKey = `workspaces:${currentUser._id || currentUser.email || 'anonymous'}`;
   const [workspaces, setWorkspaces] = useLocalStorage(
-    'workspaces',
-    initialWorkspaces,
-    ['trelloWorkspaces']
+    userStorageKey,
+    initialWorkspaces
   );
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspaces[0]?.id || 1);
-
-  const currentUser = {
-    name: 'Nguyễn Hưng',
-    initials: 'NH',
-    email: 'hungnguyen05112003@example.com',
-    role: 'Quản trị viên'
-  };
 
   const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) || workspaces[0];
 
@@ -107,6 +118,7 @@ function Home() {
       type: newWorkspace.type || 'default',
       description: newWorkspace.description || '',
       color: newWorkspace.color ? `bg-[${newWorkspace.color}]` : 'bg-[#6d5de7]',
+      apiId: newWorkspace.apiId,
       isOpen: newWorkspace.isOpen !== undefined ? newWorkspace.isOpen : true,
       hasBilling: newWorkspace.hasBilling || false,
       boards: [defaultBoard, ...(newWorkspace.boards || [])],
@@ -124,6 +136,19 @@ function Home() {
 
     setWorkspaces(prev => [...prev, workspace]);
     setActiveWorkspaceId(workspace.id);
+  };
+
+  const handleUpdateWorkspace = (workspaceId, patch) => {
+    setWorkspaces((prev) =>
+      prev.map((ws) => {
+        if (ws.id !== workspaceId) return ws;
+        const next = { ...ws, ...patch };
+        if (patch?.color) {
+          next.color = `bg-[${patch.color}]`;
+        }
+        return next;
+      })
+    );
   };
 
   const handleInviteMember = (workspaceId, email) => {
@@ -234,6 +259,7 @@ function Home() {
           onToggleWorkspace={toggleWorkspace}
           onCreateWorkspace={handleCreateWorkspace}
           onDeleteWorkspace={handleDeleteWorkspace}
+          onUpdateWorkspace={handleUpdateWorkspace}
         />
 
         <main className="ml-[300px] flex-1 p-6 overflow-y-auto" style={{ minHeight: 'calc(100vh - 48px)' }}>

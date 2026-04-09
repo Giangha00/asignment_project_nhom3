@@ -1,13 +1,32 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspace, onCreateWorkspace, onDeleteWorkspace }) => {
+const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspace, onCreateWorkspace, onDeleteWorkspace, onUpdateWorkspace }) => {
   const navigate = useNavigate();
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
   const [workspaceType, setWorkspaceType] = useState('');
   const [workspaceDescription, setWorkspaceDescription] = useState('');
   const [workspaceColor, setWorkspaceColor] = useState('#2f67ff');
+  const [editingWorkspace, setEditingWorkspace] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const getAuthHeaders = () => {
+    const token = window.localStorage.getItem('token');
+    if (!token) return {};
+    return { Authorization: `Bearer ${token}` };
+  };
+
+  const getWorkspaceApiId = (ws) => ws?.apiId || ws?._id || ws?.workspaceId || null;
+
+  const normalizeColorForApi = (color) => {
+    if (!color) return '#2f67ff';
+    if (typeof color !== 'string') return color;
+    const match = color.match(/#([0-9a-fA-F]{3,8})/);
+    if (match) return `#${match[1]}`;
+    return color;
+  };
 
   const navigateToSection = (workspaceId, section) => {
     if (!workspaceId) return;
@@ -19,23 +38,144 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
     navigate(`/workspace/${workspaceId}/${pathSection}`);
   };
 
-  const handleCreateWorkspace = (e) => {
+  const handleCreateWorkspace = async (e) => {
     e.preventDefault();
-    if (!workspaceName.trim()) return;
-    const newWorkspace = {
+    if (!workspaceName.trim() || submitting) return;
+
+    // Backend chỉ nhận: name, description, visibility, logoUrl
+    const apiPayload = {
       name: workspaceName.trim(),
-      type: workspaceType || 'default',
       description: workspaceDescription.trim(),
-      color: workspaceColor,
-      boards: [],
-      isOpen: false,
+      visibility: 'private',
     };
-    onCreateWorkspace(newWorkspace);
-    setWorkspaceName('');
-    setWorkspaceType('');
-    setWorkspaceDescription('');
-    setWorkspaceColor('#2f67ff');
+
+    try {
+      setSubmitting(true);
+      const response = await axios.post('http://localhost:4000/api/workspaces', apiPayload, {
+        headers: getAuthHeaders(),
+      });
+      const createdWorkspace = response.data;
+
+      if (onCreateWorkspace) {
+        const apiId = getWorkspaceApiId(createdWorkspace);
+        onCreateWorkspace({
+          // Giữ nguyên cơ chế id số hiện có (localStorage) để không ảnh hưởng routing/view khác.
+          // Lưu id backend vào apiId để sửa/xóa qua API.
+          name: createdWorkspace?.name || apiPayload.name,
+          description: createdWorkspace?.description || apiPayload.description,
+          visibility: createdWorkspace?.visibility,
+          logoUrl: createdWorkspace?.logoUrl,
+          apiId,
+          // Giữ các field UI hiện có
+          type: workspaceType || 'default',
+          color: normalizeColorForApi(workspaceColor),
+          isOpen: false,
+          boards: createdWorkspace.boards || [],
+        });
+      }
+
+      setWorkspaceName('');
+      setWorkspaceType('');
+      setWorkspaceDescription('');
+      setWorkspaceColor('#2f67ff');
+      setShowCreateWorkspace(false);
+    } catch (error) {
+      console.error('Failed to create workspace:', error);
+      const status = error.response?.status;
+      const apiMessage = error.response?.data?.message || error.response?.data?.error;
+      if (status === 401) {
+        alert('Bạn chưa đăng nhập hoặc token hết hạn. Vui lòng đăng nhập lại.');
+      } else {
+        alert(apiMessage || 'Không thể tạo workspace. Vui lòng thử lại.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteWorkspace = async (wsId) => {
+    if (submitting) return;
+    const ws = workspaces.find((w) => w.id === wsId);
+    const apiId = getWorkspaceApiId(ws);
+    if (!apiId) {
+      alert('Workspace này đang là dữ liệu local (chưa có trên backend) nên không thể xóa qua API.');
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await axios.delete(`http://localhost:4000/api/workspaces/${apiId}`, {
+        headers: getAuthHeaders(),
+      });
+      if (onDeleteWorkspace) {
+        onDeleteWorkspace(wsId);
+      }
+    } catch (error) {
+      console.error('Failed to delete workspace:', error);
+      const status = error.response?.status;
+      const apiMessage = error.response?.data?.message || error.response?.data?.error;
+      if (status === 401) {
+        alert('Bạn chưa đăng nhập hoặc token hết hạn. Vui lòng đăng nhập lại.');
+      } else {
+        alert(apiMessage || 'Không thể xóa workspace. Vui lòng thử lại.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditModal = (workspace) => {
+    setEditingWorkspace(workspace);
+    setWorkspaceName(workspace.name || '');
+    setWorkspaceType(workspace.type === 'default' ? '' : (workspace.type || ''));
+    setWorkspaceDescription(workspace.description || '');
+    setWorkspaceColor(normalizeColorForApi(workspace.color) || '#2f67ff');
     setShowCreateWorkspace(false);
+  };
+
+  const handleUpdateWorkspace = async (e) => {
+    e.preventDefault();
+    if (!editingWorkspace || !workspaceName.trim() || submitting) return;
+
+    const desiredName = workspaceName.trim();
+    const desiredDescription = workspaceDescription.trim();
+    const apiId = getWorkspaceApiId(editingWorkspace);
+
+    // Backend chỉ nhận: name, description, visibility, logoUrl
+    const apiPayload = {
+      name: desiredName,
+      description: desiredDescription,
+    };
+
+    try {
+      setSubmitting(true);
+      if (apiId) {
+        await axios.patch(`http://localhost:4000/api/workspaces/${apiId}`, apiPayload, {
+          headers: getAuthHeaders(),
+        });
+      }
+
+      if (typeof onUpdateWorkspace === 'function') {
+        onUpdateWorkspace(editingWorkspace.id, {
+          name: desiredName,
+          description: desiredDescription,
+          type: workspaceType || editingWorkspace.type || 'default',
+          color: normalizeColorForApi(workspaceColor),
+        });
+      }
+
+      setEditingWorkspace(null);
+    } catch (error) {
+      console.error('Failed to update workspace:', error);
+      const status = error.response?.status;
+      const apiMessage = error.response?.data?.message || error.response?.data?.error;
+      if (status === 401) {
+        alert('Bạn chưa đăng nhập hoặc token hết hạn. Vui lòng đăng nhập lại.');
+      } else {
+        alert(apiMessage || error.message || 'Không thể cập nhật workspace. Vui lòng thử lại.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -91,24 +231,37 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
                     </div>
                     <svg className={`transition-transform duration-200 ${ws.isOpen ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.confirm(`Xác nhận xóa workspace "${ws.name}"?`)) {
-                        onDeleteWorkspace(ws.id);
-                      }
-                    }}
-                    className="rounded-[3px] p-2 text-[#9fadbc] hover:text-white hover:bg-[#7f1d1d] transition"
-                    aria-label={`Xóa ${ws.name}`}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 6h18" />
-                      <path d="M8 6V4h8v2" />
-                      <path d="M19 6l-1 14H6L5 6" />
-                      <path d="M10 11v6" />
-                      <path d="M14 11v6" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(ws)}
+                      className="rounded-[3px] p-2 text-[#9fadbc] hover:text-white hover:bg-[#3c444d] transition"
+                      aria-label={`Sửa ${ws.name}`}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`Xác nhận xóa workspace "${ws.name}"?`)) {
+                          handleDeleteWorkspace(ws.id);
+                        }
+                      }}
+                      className="rounded-[3px] p-2 text-[#9fadbc] hover:text-white hover:bg-[#7f1d1d] transition"
+                      aria-label={`Xóa ${ws.name}`}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M19 6l-1 14H6L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 {ws.isOpen && (
@@ -151,23 +304,32 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
         </div>
       </div>
 
-      {/* Modal Tạo Workspace */}
-      {showCreateWorkspace && (
+      {/* Modal Tạo / Sửa Workspace */}
+      {(showCreateWorkspace || editingWorkspace) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-0 w-full max-w-4xl max-h-[90vh] overflow-auto flex">
             {/* Left Section - Form */}
             <div className="flex-1 p-8">
               <button
-                onClick={() => setShowCreateWorkspace(false)}
+                onClick={() => {
+                  setShowCreateWorkspace(false);
+                  setEditingWorkspace(null);
+                }}
                 className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl"
               >
                 ✕
               </button>
 
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Hãy xây dựng một Không gian làm việc</h2>
-              <p className="text-gray-600 mb-6 text-sm">Tăng năng suất của bạn bằng cách giúp mọi người dễ dàng truy cập bảng ở một vị trí.</p>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                {editingWorkspace ? 'Chỉnh sửa Không gian làm việc' : 'Hãy xây dựng một Không gian làm việc'}
+              </h2>
+              <p className="text-gray-600 mb-6 text-sm">
+                {editingWorkspace
+                  ? 'Cập nhật thông tin cho Không gian làm việc của bạn.'
+                  : 'Tăng năng suất của bạn bằng cách giúp mọi người dễ dàng truy cập bảng ở một vị trí.'}
+              </p>
 
-              <form onSubmit={handleCreateWorkspace} className="space-y-5">
+              <form onSubmit={editingWorkspace ? handleUpdateWorkspace : handleCreateWorkspace} className="space-y-5">
                 {/* Tên Không gian làm việc */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">Tên Không gian làm việc</label>
@@ -220,9 +382,12 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
                 {/* Button */}
                 <button
                   type="submit"
-                  className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition mt-8"
+                  disabled={submitting}
+                  className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition mt-8 disabled:opacity-60"
                 >
-                  Tiếp tục
+                  {submitting
+                    ? (editingWorkspace ? 'Đang lưu...' : 'Đang tạo...')
+                    : (editingWorkspace ? 'Lưu thay đổi' : 'Tiếp tục')}
                 </button>
               </form>
             </div>
