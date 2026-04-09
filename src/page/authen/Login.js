@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from 'axios';
+import api from "../../lib/api";
 
 function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
@@ -15,14 +15,12 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:4000/api/auth/login', { email, password });
-      const token = response.data?.token;
+      const response = await api.post("/api/auth/login", { email, password });
       const user = response.data?.user;
       if (typeof onLoginSuccess === "function") {
-        onLoginSuccess({ token, user });
+        onLoginSuccess({ user });
       }
 
-      // Chuyển hướng tới dashboard
       navigate("/home");
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại');

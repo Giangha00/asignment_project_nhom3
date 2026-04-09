@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const { HttpError, jsonBodyForHttpError } = require("./utils/httpError");
 
 require("./models/userModel");
@@ -41,7 +42,8 @@ const otpRequestsRoutes = require("./routes/otpRequests.routes");
 
 function createApp() {
   const app = express();
-  app.use(cors({ origin: true }));
+  app.use(cors({ origin: true, credentials: true }));
+  app.use(cookieParser());
   app.use(express.json());
 
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
