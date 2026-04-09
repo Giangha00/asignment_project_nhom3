@@ -5,7 +5,7 @@ import Sidebar from "../../components/SideBarHome";
 import ContentBoard from "../../components/ContentBoard";
 import MemberContent from "../../components/MemberContent";
 import SettingContent from "../../components/SettingContent";
-import BoardView from "../board/BoardView";
+import BoardDetail from "../board/BoardDetail";
 import useLocalStorage from "../../hooks/useLocalStorage";
 
 const initialWorkspaces = [
@@ -274,7 +274,7 @@ const WorkspaceUnifiedPage = () => {
   };
 
   if (activeSection === "board-detail") {
-    return <BoardView />;
+    return <BoardDetail />;
   }
 
   const renderSection = () => {

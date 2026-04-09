@@ -1,35 +1,37 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
+    setError('');
+    setLoading(true);
 
     if (!email) {
       setError('Vui lòng nhập email');
+      setLoading(false);
       return;
     }
 
-    // Kiểm tra email có tồn tại trong danh sách đã đăng ký không
-    const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-    const userExists = registeredUsers.find(u => u.email === email);
-
-    if (!userExists) {
-      setError('Email không tồn tại trong hệ thống');
-      return;
+    try {
+      const response = await axios.post('http://localhost:4000/api/auth/forgot-password', { email });
+      setMessage(response.data.message);
+      setTimeout(() => {
+        navigate('/reset-password');
+      }, 2000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Có lỗi xảy ra');
+    } finally {
+      setLoading(false);
     }
-
-    localStorage.removeItem('otpData');
-    sessionStorage.setItem('forgotPasswordResetEmail', email);
-
-    navigate('/reset-password');
-    setEmail('');
   };
 
   return (
@@ -70,9 +72,10 @@ function ForgotPassword() {
 
           <button
             type="submit"
-            className="w-full py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition"
+            disabled={loading}
+            className="w-full py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition disabled:opacity-50"
           >
-            Tiếp tục
+            {loading ? 'Đang gửi...' : 'Tiếp tục'}
           </button>
         </form>
 

@@ -7,6 +7,7 @@ const { HttpError } = require("../utils/httpError");
 const MAX_FAILED_PASSWORD_BEFORE_SUGGEST = 5;
 const emailCrypto = require("../utils/emailCrypto");
 
+
 const MIN_PASSWORD_LEN = 6;
 
 async function register({ email, password, fullName }) {

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import axios from 'axios';
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -14,42 +15,12 @@ function Login() {
     setLoading(true);
 
     try {
-      // Lấy danh sách users đã đăng ký từ localStorage
-      const registeredUsers = JSON.parse(
-        localStorage.getItem("registeredUsers") || "[]",
-      );
-
-      // Tìm user có email khớp
-      const user = registeredUsers.find((u) => u.email === email);
-
-      if (!user) {
-        setError("Email không tồn tại. Vui lòng đăng ký trước.");
-        setLoading(false);
-        return;
-      }
-
-      // Kiểm tra password
-      if (user.password !== password) {
-        setError("Mật khẩu không đúng.");
-        setLoading(false);
-        return;
-      }
-
-      // Đăng nhập thành công - lưu thông tin user hiện tại
-      localStorage.setItem("token", "demo-token-" + Date.now());
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: user.id,
-          username: user.username,
-          email: user.email,
-        }),
-      );
+      const response = await axios.post('http://localhost:4000/api/auth/login', { email, password });
 
       // Chuyển hướng tới dashboard
       navigate("/home");
     } catch (err) {
-      setError("Có lỗi xảy ra. Vui lòng thử lại.");
+      setError(err.response?.data?.message || 'Đăng nhập thất bại');
     } finally {
       setLoading(false);
     }

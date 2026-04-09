@@ -50,7 +50,7 @@ const HomeContent = ({ workspace, user, workspaces, onCreateWorkspace, onCreateB
               <h1 className="mt-3 text-4xl font-bold text-white">Xin chào, {user?.name || 'Người dùng'}</h1>
               <p className="mt-2 max-w-2xl text-sm text-[#9fadbc]">
                 Mỗi người dùng có thể tạo nhiều workspace. Trong mỗi workspace, bạn tạo nhiều bảng,
-                bấm vào bảng để mở BoardView với các cột Todo, Doing, Review và Done.
+                bấm vào bảng để mở BoardDetail với các cột Todo, Doing, Review và Done.
               </p>
             </div>
 
