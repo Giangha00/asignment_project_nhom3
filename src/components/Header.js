@@ -1,19 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
-const Header = ({ onCreateBoard, backTo, trialBadge }) => {
-  const [user] = useState(() => {
-    try {
-      const raw = localStorage.getItem('userProfile');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const name = parsed.fullName || parsed.name || parsed.email || 'User';
-        const initials = (String(name).trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('') || 'U').toUpperCase();
-        return { name, initials, email: parsed.email || '' };
-      }
-    } catch {}
-    return { name: 'User', initials: 'U', email: '' };
-  });
+const Header = ({ onCreateBoard, backTo, trialBadge, user, onLogout }) => {
   const [searchText, setSearchText] = useState('');
   const [recentSearches, setRecentSearches] = useState(['Bảng Trello của tôi', 'Bảng Demo', 'Thông tin của nhóm']);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -82,6 +70,15 @@ const Header = ({ onCreateBoard, backTo, trialBadge }) => {
       onCreateBoard(option.key);
     }
   };
+
+  const handleLogout = () => {
+    if (typeof onLogout === 'function') {
+      onLogout();
+    }
+    setUserMenuOpen(false);
+  };
+
+  const displayUser = user || { name: 'User', initials: 'U', email: '' };
 
   return (
     <nav className="h-12 px-2 flex items-center justify-between bg-[#1d2125] border-b border-[#3c444d] text-[#9fadbc] sticky top-0 z-50">
@@ -211,17 +208,17 @@ const Header = ({ onCreateBoard, backTo, trialBadge }) => {
             onClick={() => setUserMenuOpen(prev => !prev)}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1d7f5c] text-white text-[13px] font-bold transition border border-[#3c444d] hover:opacity-90"
           >
-            {user.initials}
+            {displayUser.initials}
           </button>
           {userMenuOpen && (
             <div className="absolute right-0 top-full z-30 mt-3 w-72 overflow-hidden rounded-[18px] border border-[#3c444d] bg-[#171d24] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
               <div className="border-b border-[#2c3540] px-4 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2f67ff] text-lg font-bold text-white">{user.initials}</div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2f67ff] text-lg font-bold text-white">{displayUser.initials}</div>
                   <div>
                     <div className="text-xs uppercase tracking-[0.24em] text-[#8c9bab]">Tài khoản</div>
-                    <div className="text-sm font-semibold text-white">{user.name}</div>
-                    <div className="text-xs text-[#9fadbc]">{user.email}</div>
+                    <div className="text-sm font-semibold text-white">{displayUser.name}</div>
+                    <div className="text-xs text-[#9fadbc]">{displayUser.email}</div>
                   </div>
                 </div>
               </div>
@@ -240,7 +237,13 @@ const Header = ({ onCreateBoard, backTo, trialBadge }) => {
                 <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">Tạo Không gian làm việc</button>
                 <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">Trợ giúp</button>
                 <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">Phím tắt</button>
-                <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">Đăng xuất</button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]"
+                >
+                  Đăng xuất
+                </button>
               </div>
             </div>
           )}

@@ -1,14 +1,14 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 import Sidebar from "../../components/SideBarHome";
 import HomeContent from "../../components/HomeContent";
-import useLocalStorage from "../../hooks/useLocalStorage";
 
 const initialWorkspaces = [
   {
     id: 1,
     name: 'Trello Không gian làm việc',
+    visibility: 'private',
     color: 'bg-[#a548bf]',
     isOpen: true,
     hasBilling: true,
@@ -18,70 +18,36 @@ const initialWorkspaces = [
         name: 'Bảng',
         description: 'Bảng khởi đầu để quản lý công việc trực quan'
       }
-    ],
-    members: [
-      {
-        id: 'member-1',
-        name: 'Nguyễn Hưng',
-        initials: 'NH',
-        handle: '@hungnguyen05112003',
-        role: 'Quản trị viên',
-        lastActive: 'Apr 2026'
-      }
     ]
-  },
-  {
-    id: 2,
-    name: 'Trello workspace',
-    color: 'bg-[#cd5a91]',
-    isOpen: false,
-    hasBilling: false,
-    boards: [
-      {
-        id: 'board-2',
-        name: 'Bảng Nhiệm vụ',
-        description: 'Sắp xếp nhiệm vụ theo từng giai đoạn rõ ràng'
-      }
-    ],
-    members: [
-      {
-        id: 'member-2',
-        name: 'Nguyễn Hưng',
-        initials: 'NH',
-        handle: '@hungnguyen05112003',
-        role: 'Quản trị viên',
-        lastActive: 'Apr 2026'
-      }
-    ]
+          
   }
 ];
 
-function Home() {
+function Home({ authToken, currentUser, onLogout }) {
   const navigate = useNavigate();
-  const currentUser = (() => {
-    try {
-      const raw = localStorage.getItem('userProfile');
-      if (raw) {
-        const u = JSON.parse(raw);
-        const name = u.fullName || u.name || u.email || 'User';
-        const initials = (String(name).trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('') || 'U').toUpperCase();
-        return { ...u, name, initials, email: u.email || '' };
-      }
-    } catch {}
-    return {
-      name: 'Nguyễn Hưng',
-      initials: 'NH',
-      email: 'hungnguyen05112003@example.com',
-      role: 'Quản trị viên'
-    };
-  })();
-
-  const userStorageKey = `workspaces:${currentUser._id || currentUser.email || 'anonymous'}`;
-  const [workspaces, setWorkspaces] = useLocalStorage(
-    userStorageKey,
-    initialWorkspaces
-  );
+  const resolvedUser = currentUser || {
+    name: 'Nguyễn Hưng',
+    initials: 'NH',
+    email: 'hungnguyen05112003@example.com',
+    role: 'Quản trị viên'
+  };
+  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspaces[0]?.id || 1);
+
+  useEffect(() => {
+    const isLegacyDefaultPair =
+      Array.isArray(workspaces) &&
+      workspaces.length === 2 &&
+      workspaces[0]?.name === 'Trello Không gian làm việc' 
+      
+
+    if (isLegacyDefaultPair) {
+      setWorkspaces([workspaces[0]]);
+      if (activeWorkspaceId !== workspaces[0]?.id) {
+        setActiveWorkspaceId(workspaces[0]?.id || 1);
+      }
+    }
+  }, [workspaces, setWorkspaces, activeWorkspaceId]);
 
   const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) || workspaces[0];
 
@@ -116,6 +82,7 @@ function Home() {
       id: newWorkspace.id ? Number(newWorkspace.id) : nextWorkspaceId,
       name: newWorkspace.name || `Workspace mới ${workspaces.length + 1}`,
       type: newWorkspace.type || 'default',
+      visibility: newWorkspace.visibility || 'private',
       description: newWorkspace.description || '',
       color: newWorkspace.color ? `bg-[${newWorkspace.color}]` : 'bg-[#6d5de7]',
       apiId: newWorkspace.apiId,
@@ -125,10 +92,10 @@ function Home() {
       members: newWorkspace.members || [
         {
           id: `member-${Date.now()}`,
-          name: currentUser.name,
-          initials: currentUser.initials,
-          handle: `@${currentUser.email.split('@')[0]}`,
-          role: currentUser.role,
+          name: resolvedUser.name,
+          initials: resolvedUser.initials,
+          handle: `@${resolvedUser.email.split('@')[0]}`,
+          role: resolvedUser.role,
           lastActive: 'Mới tham gia'
         }
       ]
@@ -250,7 +217,7 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-[#121517] text-[#9fadbc]">
-      <Header onCreateBoard={handleCreateBoard} />
+      <Header onCreateBoard={handleCreateBoard} user={resolvedUser} onLogout={onLogout} />
       <div className="flex">
         <Sidebar
           workspaces={workspaces}
@@ -260,12 +227,14 @@ function Home() {
           onCreateWorkspace={handleCreateWorkspace}
           onDeleteWorkspace={handleDeleteWorkspace}
           onUpdateWorkspace={handleUpdateWorkspace}
+          authToken={authToken}
+          onLogout={onLogout}
         />
 
         <main className="ml-[300px] flex-1 p-6 overflow-y-auto" style={{ minHeight: 'calc(100vh - 48px)' }}>
           <HomeContent
             workspace={activeWorkspace}
-            user={currentUser}
+            user={resolvedUser}
             workspaces={workspaces}
             onCreateWorkspace={handleCreateWorkspace}
             onCreateBoard={handleCreateBoard}

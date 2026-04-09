@@ -148,7 +148,7 @@ function Register() {
         <p className="text-center text-gray-600 text-sm mt-6">
           Đã có tài khoản?{" "}
           <Link
-            to="/login"
+            to="/"
             className="text-indigo-600 font-semibold hover:text-purple-600"
           >
             Đăng nhập

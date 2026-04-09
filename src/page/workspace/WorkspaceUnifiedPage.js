@@ -6,33 +6,9 @@ import ContentBoard from "../../components/ContentBoard";
 import MemberContent from "../../components/MemberContent";
 import SettingContent from "../../components/SettingContent";
 import BoardDetail from "../board/BoardDetail";
-import useLocalStorage from "../../hooks/useLocalStorage";
 
 const initialWorkspaces = [
-  {
-    id: 1,
-    name: "Trello Không gian làm việc",
-    color: "bg-[#a548bf]",
-    isOpen: true,
-    hasBilling: true,
-    boards: [
-      {
-        id: "board-1",
-        name: "Bảng",
-        description: "Bảng khởi đầu để quản lý công việc trực quan",
-      },
-    ],
-    members: [
-      {
-        id: "member-1",
-        name: "Nguyễn Hưng",
-        initials: "NH",
-        handle: "@hungnguyen05112003",
-        role: "Quản trị viên",
-        lastActive: "Apr 2026",
-      },
-    ],
-  },
+
   {
     id: 2,
     name: "Trello workspace",
@@ -59,40 +35,17 @@ const initialWorkspaces = [
   },
 ];
 
-const WorkspaceUnifiedPage = () => {
+const WorkspaceUnifiedPage = ({ authToken, currentUser, onLogout }) => {
   const { workspaceId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const currentUser = (() => {
-    try {
-      const raw = localStorage.getItem("userProfile");
-      if (raw) {
-        const u = JSON.parse(raw);
-        const name = u.fullName || u.name || u.email || "User";
-        const initials = (
-          String(name)
-            .trim()
-            .split(/\s+/)
-            .slice(0, 2)
-            .map((p) => p[0])
-            .join("") || "U"
-        ).toUpperCase();
-        return { ...u, name, initials, email: u.email || "" };
-      }
-    } catch {}
-    return {
-      name: "Nguyễn Hưng",
-      initials: "NH",
-      email: "hungnguyen05112003@example.com",
-      role: "Quản trị viên",
-    };
-  })();
-
-  const userStorageKey = `workspaces:${currentUser._id || currentUser.email || "anonymous"}`;
-  const [workspaces, setWorkspaces] = useLocalStorage(
-    userStorageKey,
-    initialWorkspaces
-  );
+  const resolvedUser = currentUser || {
+    name: "Nguyễn Hưng",
+    initials: "NH",
+    email: "hungnguyen05112003@example.com",
+    role: "Quản trị viên",
+  };
+  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState(
     Number(workspaceId) || workspaces[0]?.id || 1
   );
@@ -168,10 +121,10 @@ const WorkspaceUnifiedPage = () => {
       members: newWorkspace.members || [
         {
           id: `member-${Date.now()}`,
-          name: currentUser.name,
-          initials: currentUser.initials,
-          handle: `@${currentUser.email.split("@")[0]}`,
-          role: currentUser.role,
+          name: resolvedUser.name,
+          initials: resolvedUser.initials,
+          handle: `@${resolvedUser.email.split("@")[0]}`,
+          role: resolvedUser.role,
           lastActive: "Mới tham gia",
         },
       ],
@@ -334,7 +287,7 @@ const WorkspaceUnifiedPage = () => {
 
   return (
     <div className="min-h-screen bg-[#121517] text-[#9fadbc]">
-      <Header onCreateBoard={handleCreateBoard} />
+      <Header onCreateBoard={handleCreateBoard} user={resolvedUser} onLogout={onLogout} />
       <div className="flex">
         <Sidebar
           workspaces={workspaces}
@@ -344,6 +297,8 @@ const WorkspaceUnifiedPage = () => {
           onCreateWorkspace={handleCreateWorkspace}
           onDeleteWorkspace={handleDeleteWorkspace}
           onUpdateWorkspace={handleUpdateWorkspace}
+          authToken={authToken}
+          onLogout={onLogout}
         />
         <main
           className="ml-[300px] flex-1 overflow-y-auto p-6"
