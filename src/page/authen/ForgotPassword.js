@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const FORGOT_EMAIL_KEY = "forgotPasswordResetEmail";
-
-function ForgotPassword() {
+function ForgotPassword({ onEmailReady }) {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -25,10 +23,13 @@ function ForgotPassword() {
 
     try {
       const response = await axios.post('http://localhost:4000/api/auth/forgot-password', { email });
-      sessionStorage.setItem(FORGOT_EMAIL_KEY, email.trim());
+      const readyEmail = email.trim();
+      if (typeof onEmailReady === "function") {
+        onEmailReady(readyEmail);
+      }
       setMessage(response.data.message);
       setTimeout(() => {
-        navigate('/reset-password');
+        navigate('/reset-password', { state: { email: readyEmail } });
       }, 2000);
     } catch (err) {
       setError(err.response?.data?.message || 'Có lỗi xảy ra');
@@ -83,7 +84,7 @@ function ForgotPassword() {
         </form>
 
         <p className="text-center text-gray-600 text-sm mt-6">
-          Đã nhớ mật khẩu? <Link to="/login" className="text-indigo-600 font-semibold hover:text-purple-600">Quay lại đăng nhập</Link>
+          Đã nhớ mật khẩu? <Link to="/" className="text-indigo-600 font-semibold hover:text-purple-600">Quay lại đăng nhập</Link>
         </p>
       </div>
     </div>

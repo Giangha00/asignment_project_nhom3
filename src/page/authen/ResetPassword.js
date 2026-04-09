@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import axios from 'axios';
 
-const FORGOT_EMAIL_KEY = "forgotPasswordResetEmail";
-
-function ResetPassword() {
+function ResetPassword({ pendingEmail }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const emailFromState = location.state?.email;
+  const resetEmail = (emailFromState || pendingEmail || "").trim();
 
   useEffect(() => {
-    const email = sessionStorage.getItem(FORGOT_EMAIL_KEY);
-    if (!email) {
+    if (!resetEmail) {
       setError("Vui lòng nhập email ở bước quên mật khẩu trước.");
     }
-  }, []);
+  }, [resetEmail]);
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
@@ -26,8 +27,7 @@ function ResetPassword() {
     setLoading(true);
 
     try {
-      const email = sessionStorage.getItem(FORGOT_EMAIL_KEY);
-      if (!email) {
+      if (!resetEmail) {
         setError("Vui lòng nhập email ở bước quên mật khẩu trước.");
         setLoading(false);
         return;
@@ -45,7 +45,7 @@ function ResetPassword() {
         return;
       }
 
-      const response = await axios.post('http://localhost:4000/api/auth/reset-password', { email, newPassword });
+      await axios.post('http://localhost:4000/api/auth/reset-password', { email: resetEmail, newPassword });
       setTimeout(() => {
         navigate("/");
       }, 2000);
@@ -132,7 +132,7 @@ function ResetPassword() {
             quay lại
           </Link>
           <Link
-            to="/login"
+            to="/"
             className="text-indigo-600 font-semibold hover:text-purple-600 td"
           >
             trở về trang đăng nhập

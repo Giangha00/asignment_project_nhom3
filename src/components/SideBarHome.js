@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspace, onCreateWorkspace, onDeleteWorkspace, onUpdateWorkspace }) => {
+const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspace, onCreateWorkspace, onDeleteWorkspace, onUpdateWorkspace, authToken, onLogout }) => {
   const navigate = useNavigate();
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
@@ -14,9 +14,8 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
   const [submitting, setSubmitting] = useState(false);
 
   const getAuthHeaders = () => {
-    const token = window.localStorage.getItem('token');
-    if (!token) return {};
-    return { Authorization: `Bearer ${token}` };
+    if (!authToken) return {};
+    return { Authorization: `Bearer ${authToken}` };
   };
 
   const getWorkspaceApiId = (ws) => ws?.apiId || ws?._id || ws?.workspaceId || null;
@@ -63,7 +62,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
       if (onCreateWorkspace) {
         const apiId = getWorkspaceApiId(createdWorkspace);
         onCreateWorkspace({
-          // Giữ nguyên cơ chế id số hiện có (localStorage) để không ảnh hưởng routing/view khác.
+          // Giữ cơ chế id số hiện có để không ảnh hưởng routing/view khác.
           // Lưu id backend vào apiId để sửa/xóa qua API.
           name: createdWorkspace?.name || apiPayload.name,
           description: createdWorkspace?.description || apiPayload.description,
@@ -90,6 +89,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
       const apiMessage = error.response?.data?.message || error.response?.data?.error;
       if (status === 401) {
         alert('Bạn chưa đăng nhập hoặc token hết hạn. Vui lòng đăng nhập lại.');
+        if (typeof onLogout === 'function') onLogout();
       } else {
         alert(apiMessage || 'Không thể tạo workspace. Vui lòng thử lại.');
       }
@@ -120,6 +120,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
       const apiMessage = error.response?.data?.message || error.response?.data?.error;
       if (status === 401) {
         alert('Bạn chưa đăng nhập hoặc token hết hạn. Vui lòng đăng nhập lại.');
+        if (typeof onLogout === 'function') onLogout();
       } else {
         alert(apiMessage || 'Không thể xóa workspace. Vui lòng thử lại.');
       }
@@ -178,6 +179,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
       const apiMessage = error.response?.data?.message || error.response?.data?.error;
       if (status === 401) {
         alert('Bạn chưa đăng nhập hoặc token hết hạn. Vui lòng đăng nhập lại.');
+        if (typeof onLogout === 'function') onLogout();
       } else {
         alert(apiMessage || error.message || 'Không thể cập nhật workspace. Vui lòng thử lại.');
       }
@@ -346,7 +348,7 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
               <form onSubmit={editingWorkspace ? handleUpdateWorkspace : handleCreateWorkspace} className="space-y-5">
                 {/* Tên Không gian làm việc */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">Tên Không gian làm việc</label>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2"></label>
                   <input
                     type="text"
                     value={workspaceName}

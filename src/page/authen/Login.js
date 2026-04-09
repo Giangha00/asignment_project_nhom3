@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from 'axios';
 
-function Login() {
+function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -17,12 +17,9 @@ function Login() {
     try {
       const response = await axios.post('http://localhost:4000/api/auth/login', { email, password });
       const token = response.data?.token;
-      if (token) {
-        localStorage.setItem('token', token);
-      }
       const user = response.data?.user;
-      if (user) {
-        localStorage.setItem('userProfile', JSON.stringify(user));
+      if (typeof onLoginSuccess === "function") {
+        onLoginSuccess({ token, user });
       }
 
       // Chuyển hướng tới dashboard

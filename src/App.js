@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
   Routes,
   Route,
@@ -14,27 +14,72 @@ import WorkspaceUnifiedPage from "./page/workspace/WorkspaceUnifiedPage";
 import "./App.css";
 
 function App() {
-  const isAuthenticated = !!localStorage.getItem("token");
+  const [authToken, setAuthToken] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [pendingResetEmail, setPendingResetEmail] = useState("");
+
+  const isAuthenticated = Boolean(authToken);
+
+  const authPayload = useMemo(
+    () => ({ authToken, currentUser }),
+    [authToken, currentUser]
+  );
+
+  const handleLoginSuccess = ({ token, user }) => {
+    setAuthToken(token || "");
+    setCurrentUser(user || null);
+  };
+
+  const handleLogout = () => {
+    setAuthToken("");
+    setCurrentUser(null);
+    setPendingResetEmail("");
+  };
 
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      <Route
+        path="/"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/home" replace />
+          ) : (
+            <Login onLoginSuccess={handleLoginSuccess} />
+          )
+        }
+      />
       <Route path="/register" element={<Register />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route
+        path="/forgot-password"
+        element={<ForgotPassword onEmailReady={setPendingResetEmail} />}
+      />
+      <Route
+        path="/reset-password"
+        element={<ResetPassword pendingEmail={pendingResetEmail} />}
+      />
       <Route
         path="/home"
-        element={isAuthenticated ? <Home /> : <Navigate to="/login" />}
+        element={
+          isAuthenticated ? (
+            <Home {...authPayload} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
       />
       <Route
         path="/workspace/:workspaceId/:section?/:boardId?"
         element={
-          isAuthenticated ? <WorkspaceUnifiedPage /> : <Navigate to="/login" />
+          isAuthenticated ? (
+            <WorkspaceUnifiedPage {...authPayload} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/" replace />
+          )
         }
       />
       <Route
         path="/"
-        element={<Navigate to={isAuthenticated ? "/home" : "/login"} replace />}
+        element={<Navigate to={isAuthenticated ? "/home" : "/"} replace />}
       />
     </Routes>
   );
