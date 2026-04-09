@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from "../../lib/api";
 
 function ForgotPassword({ onEmailReady }) {
   const [email, setEmail] = useState('');
@@ -22,7 +22,7 @@ function ForgotPassword({ onEmailReady }) {
     }
 
     try {
-      const response = await axios.post('http://localhost:4000/api/auth/forgot-password', { email });
+      const response = await api.post("/api/auth/forgot-password", { email });
       const readyEmail = email.trim();
       if (typeof onEmailReady === "function") {
         onEmailReady(readyEmail);

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from "../lib/api";
 
-const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspace, onCreateWorkspace, onDeleteWorkspace, onUpdateWorkspace, authToken, onLogout }) => {
+const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspace, onCreateWorkspace, onDeleteWorkspace, onUpdateWorkspace, onLogout }) => {
   const navigate = useNavigate();
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
@@ -12,11 +12,6 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
   const [workspaceColor, setWorkspaceColor] = useState('#2f67ff');
   const [editingWorkspace, setEditingWorkspace] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-
-  const getAuthHeaders = () => {
-    if (!authToken) return {};
-    return { Authorization: `Bearer ${authToken}` };
-  };
 
   const getWorkspaceApiId = (ws) => ws?.apiId || ws?._id || ws?.workspaceId || null;
 
@@ -54,25 +49,23 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
 
     try {
       setSubmitting(true);
-      const response = await axios.post('http://localhost:4000/api/workspaces', apiPayload, {
-        headers: getAuthHeaders(),
-      });
+      const response = await api.post("/api/workspaces", apiPayload);
       const createdWorkspace = response.data;
 
       if (onCreateWorkspace) {
-        const apiId = getWorkspaceApiId(createdWorkspace);
         onCreateWorkspace({
+          ...createdWorkspace,
           // Giữ cơ chế id số hiện có để không ảnh hưởng routing/view khác.
           // Lưu id backend vào apiId để sửa/xóa qua API.
           name: createdWorkspace?.name || apiPayload.name,
           description: createdWorkspace?.description || apiPayload.description,
           visibility: createdWorkspace?.visibility,
           logoUrl: createdWorkspace?.logoUrl,
-          apiId,
+          apiId: getWorkspaceApiId(createdWorkspace),
           // Giữ các field UI hiện có
           type: workspaceType || 'default',
           color: normalizeColorForApi(workspaceColor),
-          isOpen: false,
+          isOpen: true,
           boards: createdWorkspace.boards || [],
         });
       }
@@ -108,11 +101,9 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
     }
     try {
       setSubmitting(true);
-      await axios.delete(`http://localhost:4000/api/workspaces/${apiId}`, {
-        headers: getAuthHeaders(),
-      });
+      await api.delete(`/api/workspaces/${apiId}`);
       if (onDeleteWorkspace) {
-        onDeleteWorkspace(wsId);
+        onDeleteWorkspace(apiId);
       }
     } catch (error) {
       console.error('Failed to delete workspace:', error);
@@ -156,19 +147,22 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
 
     try {
       setSubmitting(true);
+      let updatedWorkspace = null;
       if (apiId) {
-        await axios.patch(`http://localhost:4000/api/workspaces/${apiId}`, apiPayload, {
-          headers: getAuthHeaders(),
-        });
+        const response = await api.patch(`/api/workspaces/${apiId}`, apiPayload);
+        updatedWorkspace = response.data;
       }
 
       if (typeof onUpdateWorkspace === 'function') {
-        onUpdateWorkspace(editingWorkspace.id, {
+        onUpdateWorkspace({
+          ...editingWorkspace,
+          ...updatedWorkspace,
           name: desiredName,
           description: desiredDescription,
           type: workspaceType || editingWorkspace.type || 'default',
           visibility: workspaceVisibility,
           color: normalizeColorForApi(workspaceColor),
+          isOpen: editingWorkspace.isOpen,
         });
       }
 
@@ -228,8 +222,6 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
                   <button
                     onClick={() => {
                       onToggleWorkspace(ws.id);
-                      const section = activeSection === 'home' ? 'board' : activeSection || 'board';
-                      navigateToSection(ws.id, section);
                     }}
                     className={`flex-1 flex items-center justify-between px-2 py-1.5 rounded-[3px] transition ${activeWorkspaceId === ws.id ? 'bg-[#3c444d] text-white' : 'hover:bg-[#3c444d] text-[#dee4ea]'}`}
                   >

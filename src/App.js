@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Routes,
   Route,
@@ -10,31 +10,65 @@ import ForgotPassword from "./page/authen/ForgotPassword";
 import ResetPassword from "./page/authen/ResetPassword";
 import Home from "./page/home/Home";
 import WorkspaceUnifiedPage from "./page/workspace/WorkspaceUnifiedPage";
+import api from "./lib/api";
 
 import "./App.css";
 
 function App() {
-  const [authToken, setAuthToken] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [pendingResetEmail, setPendingResetEmail] = useState("");
+  const [authReady, setAuthReady] = useState(false);
 
-  const isAuthenticated = Boolean(authToken);
+  useEffect(() => {
+    let cancelled = false;
 
-  const authPayload = useMemo(
-    () => ({ authToken, currentUser }),
-    [authToken, currentUser]
-  );
+    const bootstrapSession = async () => {
+      try {
+        const response = await api.get("/api/auth/session");
+        if (!cancelled) {
+          setCurrentUser(response.data?.user || null);
+        }
+      } catch {
+        if (!cancelled) {
+          setCurrentUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setAuthReady(true);
+        }
+      }
+    };
 
-  const handleLoginSuccess = ({ token, user }) => {
-    setAuthToken(token || "");
+    bootstrapSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isAuthenticated = Boolean(currentUser);
+
+  const handleLoginSuccess = ({ user }) => {
     setCurrentUser(user || null);
   };
 
-  const handleLogout = () => {
-    setAuthToken("");
+  const handleLogout = async () => {
+    try {
+      await api.post("/api/auth/logout");
+    } catch {
+      // Clear local auth state even if the cookie was already invalid.
+    }
     setCurrentUser(null);
     setPendingResetEmail("");
   };
+
+  if (!authReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#121517] text-[#dee4ea]">
+        Đang tải phiên đăng nhập...
+      </div>
+    );
+  }
 
   return (
     <Routes>
@@ -61,7 +95,7 @@ function App() {
         path="/home"
         element={
           isAuthenticated ? (
-            <Home {...authPayload} onLogout={handleLogout} />
+            <Home currentUser={currentUser} onLogout={handleLogout} />
           ) : (
             <Navigate to="/" replace />
           )
@@ -71,7 +105,7 @@ function App() {
         path="/workspace/:workspaceId/:section?/:boardId?"
         element={
           isAuthenticated ? (
-            <WorkspaceUnifiedPage {...authPayload} onLogout={handleLogout} />
+            <WorkspaceUnifiedPage currentUser={currentUser} onLogout={handleLogout} />
           ) : (
             <Navigate to="/" replace />
           )

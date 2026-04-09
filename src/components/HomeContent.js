@@ -23,8 +23,11 @@ const HomeContent = ({ workspace, user, workspaces, onCreateWorkspace, onCreateB
     event.preventDefault();
     const name = workspaceName.trim();
     if (!name) return;
-    onCreateWorkspace({ name, type: 'default', description: '' });
-    setWorkspaceName('');
+    Promise.resolve(
+      onCreateWorkspace({ name, type: 'default', description: '', visibility: 'private' })
+    ).then(() => {
+      setWorkspaceName('');
+    });
   };
 
   const handleCreateBoardSubmit = (event, workspaceId) => {

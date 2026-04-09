@@ -1,55 +1,87 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 import Sidebar from "../../components/SideBarHome";
 import HomeContent from "../../components/HomeContent";
+import api from "../../lib/api";
+import { buildDefaultWorkspace, mapWorkspaceToUi } from "../../lib/workspaceUi";
 
-const initialWorkspaces = [
-  {
-    id: 1,
-    name: 'Trello Không gian làm việc',
-    visibility: 'private',
-    color: 'bg-[#a548bf]',
-    isOpen: true,
-    hasBilling: true,
-    boards: [
-      {
-        id: 'board-1',
-        name: 'Bảng',
-        description: 'Bảng khởi đầu để quản lý công việc trực quan'
-      }
-    ]
-          
-  }
-];
+function mergeWithDefaultWorkspace(items, user) {
+  const defaultWorkspace = buildDefaultWorkspace(user);
+  const nonDefaultItems = items.filter((workspace) => workspace.id !== defaultWorkspace.id);
+  return [defaultWorkspace, ...nonDefaultItems];
+}
 
-function Home({ authToken, currentUser, onLogout }) {
+function Home({ currentUser, onLogout }) {
   const navigate = useNavigate();
-  const resolvedUser = currentUser || {
-    name: 'Nguyễn Hưng',
-    initials: 'NH',
-    email: 'hungnguyen05112003@example.com',
-    role: 'Quản trị viên'
-  };
-  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspaces[0]?.id || 1);
+  const resolvedUser = useMemo(
+    () =>
+      currentUser || {
+        name: 'Nguyễn Hưng',
+        initials: 'NH',
+        email: 'hungnguyen05112003@example.com',
+        role: 'Quản trị viên'
+      },
+    [currentUser]
+  );
+  const [workspaces, setWorkspaces] = useState([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(null);
 
   useEffect(() => {
-    const isLegacyDefaultPair =
-      Array.isArray(workspaces) &&
-      workspaces.length === 2 &&
-      workspaces[0]?.name === 'Trello Không gian làm việc' 
-      
+    let cancelled = false;
 
-    if (isLegacyDefaultPair) {
-      setWorkspaces([workspaces[0]]);
-      if (activeWorkspaceId !== workspaces[0]?.id) {
-        setActiveWorkspaceId(workspaces[0]?.id || 1);
+    const loadWorkspaces = async () => {
+      try {
+        const response = await api.get("/api/workspaces");
+        const nextWorkspaces = (response.data || [])
+          .map((workspace) => mapWorkspaceToUi(workspace, resolvedUser))
+          .filter(Boolean);
+        const resolvedWorkspaces = mergeWithDefaultWorkspace(nextWorkspaces, resolvedUser);
+
+        if (!cancelled) {
+          setWorkspaces(resolvedWorkspaces);
+          setActiveWorkspaceId((prev) => prev || resolvedWorkspaces[0]?.id || null);
+        }
+      } catch (error) {
+        console.error("Failed to load workspaces:", error);
+        if (!cancelled) {
+          const fallbackWorkspaces = mergeWithDefaultWorkspace([], resolvedUser);
+          setWorkspaces(fallbackWorkspaces);
+          setActiveWorkspaceId(fallbackWorkspaces[0].id);
+        }
       }
-    }
-  }, [workspaces, setWorkspaces, activeWorkspaceId]);
+    };
+
+    loadWorkspaces();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedUser]);
 
   const activeWorkspace = workspaces.find(ws => ws.id === activeWorkspaceId) || workspaces[0];
+
+  const upsertWorkspace = (workspaceInput) => {
+    const mappedWorkspace = mapWorkspaceToUi(workspaceInput, resolvedUser);
+    if (!mappedWorkspace) return null;
+
+    setWorkspaces((prev) => {
+      const source = prev.filter((ws) => ws.id === "default-workspace" || ws.apiId);
+      const existingIndex = source.findIndex((ws) => ws.id === mappedWorkspace.id);
+      if (existingIndex === -1) {
+        return mergeWithDefaultWorkspace([...source, mappedWorkspace], resolvedUser);
+      }
+
+      const next = [...source];
+      next[existingIndex] = {
+        ...next[existingIndex],
+        ...mappedWorkspace,
+      };
+      return mergeWithDefaultWorkspace(next, resolvedUser);
+    });
+    setActiveWorkspaceId(mappedWorkspace.id);
+    return mappedWorkspace;
+  };
 
   const toggleWorkspace = (workspaceId) => {
     setWorkspaces(prev => prev.map(ws =>
@@ -58,64 +90,46 @@ function Home({ authToken, currentUser, onLogout }) {
   };
 
   const handleDeleteWorkspace = (workspaceId) => {
-    setWorkspaces(prev => prev.filter(ws => ws.id !== workspaceId));
-    if (activeWorkspaceId === workspaceId) {
-      const remainingWorkspaces = workspaces.filter(ws => ws.id !== workspaceId);
-      setActiveWorkspaceId(remainingWorkspaces[0]?.id || null);
-    }
+    setWorkspaces((prev) => {
+      const remainingWorkspaces = prev.filter(
+        (ws) =>
+          ws.id === "default-workspace" ||
+          (ws.id !== workspaceId && ws.apiId !== workspaceId)
+      );
+      const nextWorkspaces = mergeWithDefaultWorkspace(remainingWorkspaces, resolvedUser);
+      setActiveWorkspaceId((currentActiveId) =>
+        currentActiveId === workspaceId ? nextWorkspaces[0]?.id || null : currentActiveId
+      );
+      return nextWorkspaces;
+    });
   };
 
-  const handleCreateWorkspace = (newWorkspace) => {
-    // Tạo board mặc định cho workspace
-    const defaultBoard = {
-      id: `board-${Date.now()}`,
-      name: 'Bảng',
-      description: 'Bảng khởi đầu để quản lý công việc trực quan',
-      color: '#6d5de7',
-    };
-
-    const nextWorkspaceId = workspaces.length
-      ? Math.max(...workspaces.map(ws => Number(ws.id))) + 1
-      : 1;
-
-    const workspace = {
-      id: newWorkspace.id ? Number(newWorkspace.id) : nextWorkspaceId,
-      name: newWorkspace.name || `Workspace mới ${workspaces.length + 1}`,
-      type: newWorkspace.type || 'default',
-      visibility: newWorkspace.visibility || 'private',
-      description: newWorkspace.description || '',
-      color: newWorkspace.color ? `bg-[${newWorkspace.color}]` : 'bg-[#6d5de7]',
-      apiId: newWorkspace.apiId,
-      isOpen: newWorkspace.isOpen !== undefined ? newWorkspace.isOpen : true,
-      hasBilling: newWorkspace.hasBilling || false,
-      boards: [defaultBoard, ...(newWorkspace.boards || [])],
-      members: newWorkspace.members || [
-        {
-          id: `member-${Date.now()}`,
-          name: resolvedUser.name,
-          initials: resolvedUser.initials,
-          handle: `@${resolvedUser.email.split('@')[0]}`,
-          role: resolvedUser.role,
-          lastActive: 'Mới tham gia'
-        }
-      ]
-    };
-
-    setWorkspaces(prev => [...prev, workspace]);
-    setActiveWorkspaceId(workspace.id);
+  const handleWorkspaceCreated = (workspaceInput) => {
+    upsertWorkspace({
+      ...workspaceInput,
+      isOpen: workspaceInput?.isOpen ?? true,
+    });
   };
 
-  const handleUpdateWorkspace = (workspaceId, patch) => {
-    setWorkspaces((prev) =>
-      prev.map((ws) => {
-        if (ws.id !== workspaceId) return ws;
-        const next = { ...ws, ...patch };
-        if (patch?.color) {
-          next.color = `bg-[${patch.color}]`;
-        }
-        return next;
-      })
-    );
+  const handleCreateWorkspace = async (newWorkspace) => {
+    const response = await api.post("/api/workspaces", {
+      name: newWorkspace.name,
+      description: newWorkspace.description || "",
+      visibility: newWorkspace.visibility || "private",
+    });
+
+    const workspace = upsertWorkspace({
+      ...response.data,
+      type: newWorkspace.type || "default",
+      color: newWorkspace.color || "#2f67ff",
+      isOpen: true,
+    });
+
+    return workspace;
+  };
+
+  const handleUpdateWorkspace = (workspaceInput) => {
+    upsertWorkspace(workspaceInput);
   };
 
   const handleInviteMember = (workspaceId, email) => {
@@ -212,7 +226,7 @@ function Home({ authToken, currentUser, onLogout }) {
     ));
 
     setActiveWorkspaceId(targetWorkspaceId);
-    navigate(`/workspace/${targetWorkspaceId}/board/${encodeURIComponent(newBoard.id)}`);
+    navigate(`/workspace/${encodeURIComponent(targetWorkspaceId)}/board/${encodeURIComponent(newBoard.id)}`);
   };
 
   return (
@@ -224,10 +238,9 @@ function Home({ authToken, currentUser, onLogout }) {
           activeWorkspaceId={activeWorkspaceId}
           activeSection="home"
           onToggleWorkspace={toggleWorkspace}
-          onCreateWorkspace={handleCreateWorkspace}
+          onCreateWorkspace={handleWorkspaceCreated}
           onDeleteWorkspace={handleDeleteWorkspace}
           onUpdateWorkspace={handleUpdateWorkspace}
-          authToken={authToken}
           onLogout={onLogout}
         />
 

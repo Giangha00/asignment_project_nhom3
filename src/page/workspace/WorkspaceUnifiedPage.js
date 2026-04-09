@@ -6,52 +6,66 @@ import ContentBoard from "../../components/ContentBoard";
 import MemberContent from "../../components/MemberContent";
 import SettingContent from "../../components/SettingContent";
 import BoardDetail from "../board/BoardDetail";
+import api from "../../lib/api";
+import { buildDefaultWorkspace, mapWorkspaceToUi } from "../../lib/workspaceUi";
 
-const initialWorkspaces = [
+function mergeWithDefaultWorkspace(items, user) {
+  const defaultWorkspace = buildDefaultWorkspace(user);
+  const nonDefaultItems = items.filter((workspace) => workspace.id !== defaultWorkspace.id);
+  return [defaultWorkspace, ...nonDefaultItems];
+}
 
-  {
-    id: 2,
-    name: "Trello workspace",
-    color: "bg-[#cd5a91]",
-    isOpen: false,
-    hasBilling: false,
-    boards: [
-      {
-        id: "board-2",
-        name: "Bảng Nhiệm vụ",
-        description: "Sắp xếp nhiệm vụ theo từng giai đoạn rõ ràng",
-      },
-    ],
-    members: [
-      {
-        id: "member-2",
-        name: "Nguyễn Hưng",
-        initials: "NH",
-        handle: "@hungnguyen05112003",
-        role: "Quản trị viên",
-        lastActive: "Apr 2026",
-      },
-    ],
-  },
-];
-
-const WorkspaceUnifiedPage = ({ authToken, currentUser, onLogout }) => {
+const WorkspaceUnifiedPage = ({ currentUser, onLogout }) => {
   const { workspaceId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const resolvedUser = currentUser || {
-    name: "Nguyễn Hưng",
-    initials: "NH",
-    email: "hungnguyen05112003@example.com",
-    role: "Quản trị viên",
-  };
-  const [workspaces, setWorkspaces] = useState(initialWorkspaces);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState(
-    Number(workspaceId) || workspaces[0]?.id || 1
+  const resolvedUser = useMemo(
+    () =>
+      currentUser || {
+        name: "Nguyễn Hưng",
+        initials: "NH",
+        email: "hungnguyen05112003@example.com",
+        role: "Quản trị viên",
+      },
+    [currentUser]
   );
+  const [workspaces, setWorkspaces] = useState([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState(workspaceId || null);
 
   useEffect(() => {
-    const id = Number(workspaceId) || workspaces[0]?.id || 1;
+    let cancelled = false;
+
+    const loadWorkspaces = async () => {
+      try {
+        const response = await api.get("/api/workspaces");
+        const nextWorkspaces = (response.data || [])
+          .map((workspace) => mapWorkspaceToUi(workspace, resolvedUser))
+          .filter(Boolean);
+        const resolvedWorkspaces = mergeWithDefaultWorkspace(nextWorkspaces, resolvedUser);
+
+        if (!cancelled) {
+          setWorkspaces(resolvedWorkspaces);
+          setActiveWorkspaceId(workspaceId || resolvedWorkspaces[0]?.id || null);
+        }
+      } catch (error) {
+        console.error("Failed to load workspaces:", error);
+        if (!cancelled) {
+          const fallbackWorkspaces = mergeWithDefaultWorkspace([], resolvedUser);
+          setWorkspaces(fallbackWorkspaces);
+          setActiveWorkspaceId(workspaceId || fallbackWorkspaces[0].id);
+        }
+      }
+    };
+
+    loadWorkspaces();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [resolvedUser, workspaceId]);
+
+  useEffect(() => {
+    const id = workspaceId || workspaces[0]?.id || null;
     setActiveWorkspaceId(id);
   }, [workspaceId, workspaces]);
 
@@ -80,72 +94,57 @@ const WorkspaceUnifiedPage = ({ authToken, currentUser, onLogout }) => {
   };
 
   const handleDeleteWorkspace = (workspaceIdToDelete) => {
-    const remainingWorkspaces = workspaces.filter(
-      (ws) => ws.id !== workspaceIdToDelete
-    );
-    setWorkspaces(remainingWorkspaces);
+    setWorkspaces((prev) => {
+      const remainingWorkspaces = prev.filter(
+        (ws) =>
+          ws.id === "default-workspace" ||
+          (ws.id !== workspaceIdToDelete && ws.apiId !== workspaceIdToDelete)
+      );
+      const nextWorkspaces = mergeWithDefaultWorkspace(remainingWorkspaces, resolvedUser);
 
-    if (activeWorkspaceId === workspaceIdToDelete) {
-      if (remainingWorkspaces.length > 0) {
-        const nextWorkspaceId = remainingWorkspaces[0].id;
-        setActiveWorkspaceId(nextWorkspaceId);
-        navigate(`/workspace/${nextWorkspaceId}/boards`);
-      } else {
-        navigate("/home");
-      }
-    }
+      setActiveWorkspaceId((currentActiveId) => {
+        const nextActiveId =
+          currentActiveId === workspaceIdToDelete
+            ? nextWorkspaces[0]?.id || null
+            : currentActiveId;
+
+        if (currentActiveId === workspaceIdToDelete && nextActiveId) {
+          navigate(`/workspace/${encodeURIComponent(nextActiveId)}/boards`);
+        }
+
+        return nextActiveId;
+      });
+
+      return nextWorkspaces;
+    });
   };
 
   const handleCreateWorkspace = (newWorkspace) => {
-    const defaultBoard = {
-      id: `board-${Date.now()}`,
-      name: "Bảng",
-      description: "Bảng khởi đầu để quản lý công việc trực quan",
-      color: "#6d5de7",
-    };
+    const workspace = mapWorkspaceToUi(
+      {
+        ...newWorkspace,
+        isOpen: newWorkspace?.isOpen ?? true,
+      },
+      resolvedUser
+    );
+    if (!workspace) return;
 
-    const nextWorkspaceId = workspaces.length
-      ? Math.max(...workspaces.map((ws) => Number(ws.id))) + 1
-      : 1;
-
-    const workspace = {
-      id: newWorkspace.id ? Number(newWorkspace.id) : nextWorkspaceId,
-      name: newWorkspace.name || `Workspace mới ${workspaces.length + 1}`,
-      type: newWorkspace.type || "default",
-      description: newWorkspace.description || "",
-      color: newWorkspace.color ? `bg-[${newWorkspace.color}]` : "bg-[#6d5de7]",
-      apiId: newWorkspace.apiId,
-      isOpen: newWorkspace.isOpen !== undefined ? newWorkspace.isOpen : true,
-      hasBilling: newWorkspace.hasBilling || false,
-      boards: [defaultBoard, ...(newWorkspace.boards || [])],
-      members: newWorkspace.members || [
-        {
-          id: `member-${Date.now()}`,
-          name: resolvedUser.name,
-          initials: resolvedUser.initials,
-          handle: `@${resolvedUser.email.split("@")[0]}`,
-          role: resolvedUser.role,
-          lastActive: "Mới tham gia",
-        },
-      ],
-    };
-
-    setWorkspaces((prev) => [...prev, workspace]);
+    setWorkspaces((prev) => {
+      const source = prev.filter((ws) => ws.id === "default-workspace" || ws.apiId);
+      const existingIndex = source.findIndex((ws) => ws.id === workspace.id);
+      if (existingIndex === -1) {
+        return mergeWithDefaultWorkspace([...source, workspace], resolvedUser);
+      }
+      const next = [...source];
+      next[existingIndex] = { ...next[existingIndex], ...workspace };
+      return mergeWithDefaultWorkspace(next, resolvedUser);
+    });
     setActiveWorkspaceId(workspace.id);
-    navigate(`/workspace/${workspace.id}/boards`);
+    navigate(`/workspace/${encodeURIComponent(workspace.id)}/boards`);
   };
 
-  const handleUpdateWorkspace = (workspaceIdToUpdate, patch) => {
-    setWorkspaces((prev) =>
-      prev.map((ws) => {
-        if (ws.id !== workspaceIdToUpdate) return ws;
-        const next = { ...ws, ...patch };
-        if (patch?.color) {
-          next.color = `bg-[${patch.color}]`;
-        }
-        return next;
-      })
-    );
+  const handleUpdateWorkspace = (workspaceInput) => {
+    handleCreateWorkspace(workspaceInput);
   };
 
   const handleInviteMember = (workspaceIdToInvite, email) => {
@@ -255,7 +254,7 @@ const WorkspaceUnifiedPage = ({ authToken, currentUser, onLogout }) => {
     );
 
     setActiveWorkspaceId(targetWorkspaceId);
-    navigate(`/workspace/${targetWorkspaceId}/board/${encodeURIComponent(newBoard.id)}`);
+    navigate(`/workspace/${encodeURIComponent(targetWorkspaceId)}/board/${encodeURIComponent(newBoard.id)}`);
   };
 
   if (activeSection === "board-detail") {
@@ -297,7 +296,6 @@ const WorkspaceUnifiedPage = ({ authToken, currentUser, onLogout }) => {
           onCreateWorkspace={handleCreateWorkspace}
           onDeleteWorkspace={handleDeleteWorkspace}
           onUpdateWorkspace={handleUpdateWorkspace}
-          authToken={authToken}
           onLogout={onLogout}
         />
         <main

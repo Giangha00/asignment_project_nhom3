@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import axios from 'axios';
+import api from "../../lib/api";
 
 function ResetPassword({ pendingEmail }) {
   const [newPassword, setNewPassword] = useState("");
@@ -45,7 +45,7 @@ function ResetPassword({ pendingEmail }) {
         return;
       }
 
-      await axios.post('http://localhost:4000/api/auth/reset-password', { email: resetEmail, newPassword });
+      await api.post("/api/auth/reset-password", { email: resetEmail, newPassword });
       setTimeout(() => {
         navigate("/");
       }, 2000);
