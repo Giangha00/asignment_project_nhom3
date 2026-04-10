@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from "../lib/api";
 
-const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspace, onCreateWorkspace, onDeleteWorkspace, onUpdateWorkspace, onLogout }) => {
+const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspace, onCreateWorkspace, onDeleteWorkspace, onUpdateWorkspace, onSelectSection, onLogout }) => {
   const navigate = useNavigate();
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
@@ -28,7 +28,14 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
 
   const navigateToSection = (workspaceId, section) => {
     if (!workspaceId) return;
+    if (section === 'board' && typeof onSelectSection === 'function') {
+      onSelectSection({ workspaceId, section: 'board' });
+      return;
+    }
     if (section === 'home') {
+      if (typeof onSelectSection === 'function') {
+        onSelectSection({ workspaceId, section: 'home' });
+      }
       navigate('/home');
       return;
     }
@@ -196,7 +203,12 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
             Mẫu
           </button>
           <button
-            onClick={() => window.location.href = '/home'}
+            onClick={() => {
+              if (typeof onSelectSection === 'function') {
+                onSelectSection({ workspaceId: activeWorkspaceId, section: 'home' });
+              }
+              navigate('/home');
+            }}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-[3px] transition text-sm font-medium ${activeSection === 'home' ? 'bg-[#3c444d] text-white' : 'hover:bg-[#3c444d] text-[#579dff]'}`}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>

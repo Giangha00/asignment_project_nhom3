@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { User } from 'lucide-react';
 import CreateBoard from './CreateBoard';
 
@@ -22,26 +21,58 @@ function coverClassForBoard(boardId, index) {
   return BOARD_COVER_CLASSES[hash % BOARD_COVER_CLASSES.length];
 }
 
-function BoardCard({ workspaceId, board, index }) {
+function BoardCard({ board, index, onClick, onEdit, onDelete }) {
   const cover = coverClassForBoard(board.id, index);
-  const to = `/workspace/${encodeURIComponent(workspaceId)}/board/${encodeURIComponent(board.id)}`;
+
+  const handleEdit = (event) => {
+    event.stopPropagation();
+    if (typeof onEdit !== 'function') return;
+    const nextName = window.prompt('Nhập tên bảng mới', board.name || '');
+    if (!nextName || !nextName.trim()) return;
+    onEdit(nextName.trim());
+  };
+
+  const handleDelete = (event) => {
+    event.stopPropagation();
+    if (typeof onDelete !== 'function') return;
+    const ok = window.confirm(`Xóa bảng "${board.name}"?`);
+    if (!ok) return;
+    onDelete();
+  };
 
   return (
-    <Link
-      to={to}
+    <button
+      type="button"
+      onClick={onClick}
       className="group block h-full w-full rounded-xl text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#579dff] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1d2125]"
     >
       <div className="flex h-full min-h-[120px] w-full flex-col overflow-hidden rounded-xl border border-[#3c444d] bg-[#22272d] shadow-sm transition group-hover:border-[#579dff]/50 group-hover:shadow-md">
         <div className={`min-h-0 flex-[3] ${cover}`} aria-hidden />
-        <div className="flex flex-[1] shrink-0 items-center bg-[#0d1114] px-3 py-2.5">
+        <div className="flex flex-[1] shrink-0 items-center justify-between gap-2 bg-[#0d1114] px-3 py-2.5">
           <h3 className="truncate text-sm font-semibold text-white">{board.name}</h3>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleEdit}
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-[#9fbbe0] hover:bg-[#24303e] hover:text-white"
+            >
+              Sửa
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium text-[#ffb4b4] hover:bg-[#3d1f24] hover:text-white"
+            >
+              Xóa
+            </button>
+          </div>
         </div>
       </div>
-    </Link>
+    </button>
   );
 }
 
-const ContentBoard = ({ workspace, workspaces, onCreateBoard }) => {
+const ContentBoard = ({ workspace, workspaces, onCreateBoard, onDeleteBoard, onSelectBoard, onUpdateBoard }) => {
   const boards = workspace?.boards ?? [];
 
   return (
@@ -58,7 +89,25 @@ const ContentBoard = ({ workspace, workspaces, onCreateBoard }) => {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {boards.map((board, index) => (
           <div key={board.id} className="aspect-[16/10] min-h-[120px]">
-            <BoardCard workspaceId={workspace?.id} board={board} index={index} />
+            <BoardCard
+              board={board}
+              index={index}
+              onDelete={() => {
+                if (typeof onDeleteBoard === 'function') {
+                  onDeleteBoard(workspace?.id, board.id);
+                }
+              }}
+              onEdit={(nextName) => {
+                if (typeof onUpdateBoard === 'function') {
+                  onUpdateBoard(workspace?.id, board.id, { name: nextName });
+                }
+              }}
+              onClick={() => {
+                if (typeof onSelectBoard === 'function') {
+                  onSelectBoard(board);
+                }
+              }}
+            />
           </div>
         ))}
         <div className="aspect-[16/10] min-h-[120px]">

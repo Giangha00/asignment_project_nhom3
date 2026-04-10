@@ -10,6 +10,7 @@ function WorkspaceLayout({
   onCreateWorkspace,
   onDeleteWorkspace,
   onLogout,
+  onSelectSection,
   onToggleWorkspace,
   onUpdateWorkspace,
   user,
@@ -27,6 +28,7 @@ function WorkspaceLayout({
           onCreateWorkspace={onCreateWorkspace}
           onDeleteWorkspace={onDeleteWorkspace}
           onUpdateWorkspace={onUpdateWorkspace}
+          onSelectSection={onSelectSection}
           onLogout={onLogout}
         />
         <main
