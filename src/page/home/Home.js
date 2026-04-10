@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import HomeContent from "./HomeContent";
 import api from "../../lib/api";
 import { useWorkspaceShell } from "../../hooks/useWorkspaceShell";
@@ -7,6 +8,7 @@ import ContentBoard from "../../components/ContentBoard";
 import { getSocket } from "../../lib/socket";
 
 function Home({ currentUser, onLogout }) {
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("home");
   const {
     activeWorkspace,
@@ -132,6 +134,16 @@ function Home({ currentUser, onLogout }) {
     if (payload && typeof payload === 'object' && payload.workspaceId) {
       targetWorkspaceId = payload.workspaceId;
     }
+    if (targetWorkspaceId === "default-workspace") {
+      // "default-workspace" is UI-only and does not exist in DB.
+      // Route board creation to the first persisted workspace to avoid data loss after reload.
+      const persistedWorkspace = workspaces.find((ws) => ws.id && ws.id !== "default-workspace");
+      if (!persistedWorkspace) {
+        alert("Không thể lưu bảng trong workspace mặc định. Vui lòng tạo workspace thật trước.");
+        return;
+      }
+      targetWorkspaceId = persistedWorkspace.id;
+    }
     const targetWorkspace = workspaces.find(ws => ws.id === targetWorkspaceId);
     if (!targetWorkspace) return;
     const targetBoards = Array.isArray(targetWorkspace.boards)
@@ -171,17 +183,6 @@ function Home({ currentUser, onLogout }) {
       const option = typeof payload === 'string' ? payload : 'board';
       boardName = boardNames[option] || `Bảng mới ${nextIndex}`;
       boardDescription = boardDescriptions[option] || 'Bảng mới được tạo từ Header';
-    }
-
-    if (targetWorkspaceId === "default-workspace") {
-      const newBoard = {
-        id: `board-${targetWorkspace.id}-${Date.now()}`,
-        name: boardName,
-        description: boardDescription,
-      };
-      addBoardToWorkspace(targetWorkspaceId, newBoard);
-      setActiveSection("board");
-      return;
     }
 
     try {
@@ -243,6 +244,12 @@ function Home({ currentUser, onLogout }) {
     }
   };
 
+  const openBoardDetailPage = (workspaceId, board) => {
+    const nextBoardId = String(board?.apiId || board?._id || board?.boardId || board?.id || "");
+    if (!workspaceId || !nextBoardId) return;
+    navigate(`/workspace/${encodeURIComponent(workspaceId)}/board/${encodeURIComponent(nextBoardId)}`);
+  };
+
   const handleDeleteBoard = async (workspaceId, boardId) => {
     const targetWorkspace = workspaces.find((ws) => ws.id === workspaceId);
     const board = (targetWorkspace?.boards || []).find((item) => item.id === boardId);
@@ -290,6 +297,7 @@ function Home({ currentUser, onLogout }) {
           onCreateBoard={handleCreateBoard}
           onUpdateBoard={handleUpdateBoard}
           onDeleteBoard={handleDeleteBoard}
+          onSelectBoard={(board) => openBoardDetailPage(activeWorkspace?.id, board)}
         />
       ) : (
         <HomeContent
@@ -302,6 +310,7 @@ function Home({ currentUser, onLogout }) {
           onOpenWorkspaceBoards={(workspaceId) =>
             handleSelectSection({ workspaceId, section: "board" })
           }
+          onOpenBoardDetail={openBoardDetailPage}
         />
       )}
     </WorkspaceLayout>

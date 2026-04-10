@@ -5,6 +5,7 @@ import Register from "./page/authen/Register";
 import ForgotPassword from "./page/authen/ForgotPassword";
 import ResetPassword from "./page/authen/ResetPassword";
 import Home from "./page/home/Home";
+import BoardDetail from "./page/board/BoardDetail";
 import api from "./lib/api";
 
 import "./App.css";
@@ -91,6 +92,16 @@ function App() {
         element={
           isAuthenticated ? (
             <Home currentUser={currentUser} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
+      <Route
+        path="/workspace/:workspaceId/board/:boardId"
+        element={
+          isAuthenticated ? (
+            <BoardDetail />
           ) : (
             <Navigate to="/" replace />
           )

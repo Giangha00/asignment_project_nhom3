@@ -7,6 +7,7 @@ function HomeContent({
   onCreateWorkspace,
   onCreateBoard,
   onOpenWorkspaceBoards,
+  onOpenBoardDetail,
   onInviteMember,
 }) {
   const [workspaceName, setWorkspaceName] = useState("");
@@ -166,10 +167,10 @@ function HomeContent({
 
                   <div className="flex flex-wrap gap-3 text-sm text-[#9fadbc]">
                     <span className="rounded-full border border-[#2d3640] bg-[#10161b] px-3 py-1">
-                      {members.length} thanh vien
+                      {members.length} thành viên
                     </span>
                     <span className="rounded-full border border-[#2d3640] bg-[#10161b] px-3 py-1">
-                      {boards.length} bang
+                      {boards.length} bảng
                     </span>
                   </div>
                 </div>
@@ -180,7 +181,7 @@ function HomeContent({
                     className="rounded-xl border border-[#2d3640] bg-[#10161b] p-3"
                   >
                     <label className="text-xs uppercase tracking-wider text-[#8c9bab]">
-                      Tao bang trong workspace
+                      Tạo bảng trong workspace
                     </label>
                     <input
                       value={boardByWorkspace[item.id] || ""}
@@ -206,7 +207,7 @@ function HomeContent({
                     className="rounded-xl border border-[#2d3640] bg-[#10161b] p-3"
                   >
                     <label className="text-xs uppercase tracking-wider text-[#8c9bab]">
-                      Moi thanh vien
+                      Mời thành viên
                     </label>
                     <input
                       value={inviteByWorkspace[item.id] || ""}
@@ -223,7 +224,7 @@ function HomeContent({
                       type="submit"
                       className="mt-2 w-full rounded-lg border border-[#3c444d] bg-[#151b21] px-3 py-2 text-sm font-semibold text-[#d1d7e0] hover:border-[#579dff] hover:text-white"
                     >
-                      Gui loi moi
+                      Gửi lời mời
                     </button>
                   </form>
                 </div>
@@ -231,8 +232,8 @@ function HomeContent({
 
               <div className="mt-5">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white">Danh sach bang</h3>
-                  <span className="text-sm text-[#8c9bab]">Mo nhanh bang ngay tu man home</span>
+                  <h3 className="text-lg font-semibold text-white">Danh sách bảng</h3>
+                  <span className="text-sm text-[#8c9bab]">Mở nhanh bảng ngay từ màn home</span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -242,7 +243,9 @@ function HomeContent({
                         type="button"
                         key={board.id}
                         onClick={() => {
-                          if (typeof onOpenWorkspaceBoards === "function") {
+                          if (typeof onOpenBoardDetail === "function") {
+                            onOpenBoardDetail(item.id, board);
+                          } else if (typeof onOpenWorkspaceBoards === "function") {
                             onOpenWorkspaceBoards(item.id);
                           }
                         }}
@@ -254,12 +257,12 @@ function HomeContent({
                         <p className="mt-1 line-clamp-2 text-xs text-[#8c9bab]">
                           {board.description || "Chua co mo ta cho bang nay."}
                         </p>
-                        <div className="mt-3 text-xs font-medium text-[#579dff]">Mo danh sach board</div>
+                        <div className="mt-3 text-xs font-medium text-[#579dff]">Mở board</div>
                       </button>
                     ))
                   ) : (
                     <div className="rounded-xl border border-dashed border-[#3c444d] bg-[#10161b] p-4 text-sm text-[#8c9bab]">
-                      Workspace nay chua co bang nao. Hay tao bang moi de no xuat hien tai day.
+                      Workspace này chưa có bảng nào. Hãy tạo bảng mới để nó xuất hiện tại đây.
                     </div>
                   )}
                 </div>
