@@ -67,74 +67,7 @@ function HomeContent({
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <section className="rounded-[28px] border border-[#30363f] bg-[#181f25] p-8 shadow-sm">
-        <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
-          <div className="space-y-5">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-[#8c9bab]">Home</p>
-              <h1 className="mt-3 text-4xl font-bold text-white">
-                Xin chao, {user?.name || "Nguoi dung"}
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-[#9fadbc]">
-                Day la khu vuc tong quan de theo doi tat ca workspace cua ban. Moi workspace
-                deu hien thi ngay danh sach bang tren man home de ban mo nhanh va tiep tuc cong
-                viec.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-[20px] border border-[#232b34] bg-[#10161b] p-5">
-                <div className="text-sm text-[#8c9bab]">So workspace</div>
-                <div className="mt-2 text-2xl font-semibold text-white">{workspaceCount}</div>
-              </div>
-              <div className="rounded-[20px] border border-[#232b34] bg-[#10161b] p-5">
-                <div className="text-sm text-[#8c9bab]">Tong so bang</div>
-                <div className="mt-2 text-2xl font-semibold text-white">{totalBoards}</div>
-              </div>
-              <div className="rounded-[20px] border border-[#232b34] bg-[#10161b] p-5">
-                <div className="text-sm text-[#8c9bab]">Workspace hien tai</div>
-                <div className="mt-2 truncate text-2xl font-semibold text-white">
-                  {workspace?.name || "-"}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-[22px] border border-[#232b34] bg-[#10161b] p-6">
-            <div className="mb-5 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-[#2f67ff] text-2xl font-bold text-white">
-                {user?.initials || "ND"}
-              </div>
-              <div>
-                <div className="text-sm text-[#8c9bab]">Tai khoan</div>
-                <div className="mt-1 text-xl font-semibold text-white">
-                  {user?.name || "Nguoi dung"}
-                </div>
-                <div className="text-sm text-[#9fadbc]">{user?.email || "user@example.com"}</div>
-              </div>
-            </div>
-
-            <form
-              onSubmit={handleCreateWorkspaceSubmit}
-              className="space-y-3 rounded-2xl border border-[#3c444d] bg-[#141b21] p-4"
-            >
-              <label className="text-sm text-[#9fadbc]">Tao workspace moi</label>
-              <input
-                value={workspaceName}
-                onChange={(event) => setWorkspaceName(event.target.value)}
-                placeholder="Nhap ten workspace"
-                className="w-full rounded-xl border border-[#2d3640] bg-[#0f1720] px-3 py-2 text-white outline-none"
-              />
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-[#579dff] px-4 py-2.5 text-sm font-semibold text-[#1d2125] transition hover:bg-[#7fbfff]"
-              >
-                Tao workspace
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
+      
 
       <section className="space-y-4">
         {workspaces.map((item) => {
