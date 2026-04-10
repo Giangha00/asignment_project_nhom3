@@ -1,3 +1,10 @@
+/**
+ * JWT & middleware bảo vệ API.
+ *
+ * - Đọc token: ưu tiên cookie `accessToken` (httpOnly), sau đó header `Authorization: Bearer ...`.
+ * - Payload chuẩn: `sub` = Mongo user id; thêm email, fullName để tiện hiển thị (không thay thế tra DB khi cần dữ liệu đầy đủ).
+ * - Cookie: httpOnly giảm rủi ro XSS đánh cắp token; secure + sameSite theo môi trường production.
+ */
 const jwt = require("jsonwebtoken");
 
 const AUTH_COOKIE_NAME = "accessToken";
@@ -10,6 +17,7 @@ function isProduction() {
   return process.env.NODE_ENV === "production";
 }
 
+/** Tuỳ chọn cookie JWT: thời hạn 7 ngày, path toàn site API. */
 function buildAuthCookieOptions() {
   return {
     httpOnly: true,
@@ -20,6 +28,7 @@ function buildAuthCookieOptions() {
   };
 }
 
+/** Lấy chuỗi JWT thô từ cookie hoặc Bearer. */
 function readTokenFromRequest(req) {
   const tokenFromCookie = req.cookies?.[AUTH_COOKIE_NAME];
   if (tokenFromCookie) return tokenFromCookie;
@@ -32,6 +41,10 @@ function readTokenFromRequest(req) {
   return "";
 }
 
+/**
+ * Bắt buộc request có JWT hợp lệ → gắn `req.userId` (từ `payload.sub`) cho controller/service sau.
+ * Các route workspace/board/... dùng middleware này để chỉ user đăng nhập mới thao tác được.
+ */
 function authMiddleware(req, res, next) {
   const token = readTokenFromRequest(req);
   if (!token) {
@@ -46,6 +59,7 @@ function authMiddleware(req, res, next) {
   }
 }
 
+/** Ký JWT access token (hết hạn 7d). `userId` map vào claim `sub` (chuẩn OIDC-style). */
 function signUserToken({ userId, email = "", fullName = "" }) {
   return jwt.sign(
     {

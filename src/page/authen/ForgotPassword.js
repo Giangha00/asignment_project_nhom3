@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from "../../lib/api";
 
+/**
+ * Quên mật khẩu (bước 1): POST /api/auth/forgot-password kiểm tra email.
+ * Truyền email sang bước đặt lại mật khẩu qua onEmailReady / navigate state.
+ */
 function ForgotPassword({ onEmailReady }) {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
