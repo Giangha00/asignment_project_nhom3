@@ -6,6 +6,8 @@ const userSchema = new mongoose.Schema(
   {
     /** Legacy plain email (older documents); new users use emailEncrypted + emailLookup. */
     email: { type: String, lowercase: true, trim: true, sparse: true },
+    emailEncrypted: { type: String, default: "" },
+    emailLookup: { type: String, index: true, sparse: true },
     passwordHash: { type: String, required: true, select: false },
     fullName: { type: String, default: "" },
     avatarUrl: { type: String, default: "" },

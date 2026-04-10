@@ -46,8 +46,16 @@ function authMiddleware(req, res, next) {
   }
 }
 
-function signUserToken(userId) {
-  return jwt.sign({ sub: userId }, getJwtSecret(), { expiresIn: "7d" });
+function signUserToken({ userId, email = "", fullName = "" }) {
+  return jwt.sign(
+    {
+      sub: userId,
+      email,
+      fullName,
+    },
+    getJwtSecret(),
+    { expiresIn: "7d" }
+  );
 }
 
 module.exports = {
