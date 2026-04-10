@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 
 function HomeContent({
   workspace,
@@ -7,6 +6,7 @@ function HomeContent({
   workspaces = [],
   onCreateWorkspace,
   onCreateBoard,
+  onOpenWorkspaceBoards,
   onInviteMember,
 }) {
   const [workspaceName, setWorkspaceName] = useState("");
@@ -238,9 +238,14 @@ function HomeContent({
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {boards.length > 0 ? (
                     boards.map((board) => (
-                      <Link
+                      <button
+                        type="button"
                         key={board.id}
-                        to={`/workspace/${encodeURIComponent(item.id)}/board/${encodeURIComponent(board.id)}`}
+                        onClick={() => {
+                          if (typeof onOpenWorkspaceBoards === "function") {
+                            onOpenWorkspaceBoards(item.id);
+                          }
+                        }}
                         className="group rounded-xl border border-[#2d3640] bg-[#10161b] p-4 transition hover:border-[#579dff]"
                       >
                         <div className="text-sm font-semibold text-white group-hover:text-[#a7d0ff]">
@@ -249,8 +254,8 @@ function HomeContent({
                         <p className="mt-1 line-clamp-2 text-xs text-[#8c9bab]">
                           {board.description || "Chua co mo ta cho bang nay."}
                         </p>
-                        <div className="mt-3 text-xs font-medium text-[#579dff]">Mo board</div>
-                      </Link>
+                        <div className="mt-3 text-xs font-medium text-[#579dff]">Mo danh sach board</div>
+                      </button>
                     ))
                   ) : (
                     <div className="rounded-xl border border-dashed border-[#3c444d] bg-[#10161b] p-4 text-sm text-[#8c9bab]">

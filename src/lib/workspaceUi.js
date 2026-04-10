@@ -12,6 +12,21 @@ function buildDefaultMembers(currentUser) {
   ];
 }
 
+function mapBoardToUi(board) {
+  if (!board) return null;
+  const apiId = String(board.apiId || board._id || board.boardId || board.id || "");
+  const resolvedId = apiId || String(board.id || "");
+  if (!resolvedId) return null;
+
+  return {
+    ...board,
+    id: resolvedId,
+    apiId,
+    name: board.name || "Bảng",
+    description: board.description || "",
+  };
+}
+
 export function buildDefaultWorkspace(currentUser) {
   return {
     id: "default-workspace",
@@ -53,7 +68,9 @@ export function mapWorkspaceToUi(workspace, currentUser) {
     color: String(colorValue).startsWith("bg-[") ? colorValue : `bg-[${colorValue}]`,
     isOpen: workspace.isOpen ?? false,
     hasBilling: workspace.hasBilling || false,
-    boards: Array.isArray(workspace.boards) ? workspace.boards : [],
+    boards: Array.isArray(workspace.boards)
+      ? workspace.boards.map(mapBoardToUi).filter(Boolean)
+      : [],
     members:
       Array.isArray(workspace.members) && workspace.members.length > 0
         ? workspace.members

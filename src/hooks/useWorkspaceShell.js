@@ -168,7 +168,23 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
           ? {
               ...workspace,
               isOpen: true,
-              boards: [...(Array.isArray(workspace.boards) ? workspace.boards : []), board],
+              boards: (() => {
+                const currentBoards = Array.isArray(workspace.boards) ? workspace.boards : [];
+                const nextBoardId = String(board?.id || board?._id || board?.boardId || "");
+                if (!nextBoardId) return [...currentBoards, board];
+
+                const existingIndex = currentBoards.findIndex(
+                  (item) => String(item?.id || item?._id || item?.boardId || "") === nextBoardId
+                );
+                if (existingIndex === -1) return [...currentBoards, board];
+
+                const nextBoards = [...currentBoards];
+                nextBoards[existingIndex] = {
+                  ...nextBoards[existingIndex],
+                  ...board,
+                };
+                return nextBoards;
+              })(),
             }
           : workspace
       )
@@ -176,15 +192,45 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
     setActiveWorkspaceId(workspaceId);
   };
 
+  const updateBoardInWorkspace = (workspaceId, boardId, boardPatch) => {
+    setWorkspaces((prev) =>
+      prev.map((workspace) => {
+        if (workspace.id !== workspaceId) return workspace;
+        const currentBoards = Array.isArray(workspace.boards) ? workspace.boards : [];
+        return {
+          ...workspace,
+          boards: currentBoards.map((board) =>
+            board.id === boardId ? { ...board, ...boardPatch } : board
+          ),
+        };
+      })
+    );
+  };
+
+  const removeBoardFromWorkspace = (workspaceId, boardId) => {
+    setWorkspaces((prev) =>
+      prev.map((workspace) => {
+        if (workspace.id !== workspaceId) return workspace;
+        const currentBoards = Array.isArray(workspace.boards) ? workspace.boards : [];
+        return {
+          ...workspace,
+          boards: currentBoards.filter((board) => board.id !== boardId),
+        };
+      })
+    );
+  };
+
   return {
     activeWorkspace,
     activeWorkspaceId,
     addBoardToWorkspace,
     inviteMember,
+    removeBoardFromWorkspace,
     removeWorkspace,
     resolvedUser,
     setActiveWorkspaceId,
     toggleWorkspace,
+    updateBoardInWorkspace,
     upsertWorkspace,
     workspaces,
   };
