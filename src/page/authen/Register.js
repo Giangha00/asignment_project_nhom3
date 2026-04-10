@@ -14,6 +14,8 @@ function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedFullName = username.trim();
 
     // Kiểm tra mật khẩu
     if (password !== confirmPassword) {
@@ -27,7 +29,7 @@ function Register() {
     }
 
     // Kiểm tra email phải có đuôi @gmail.com
-    if (!email.endsWith("@gmail.com")) {
+    if (!normalizedEmail.endsWith("@gmail.com")) {
       setError("Email phải có đuôi @gmail.com");
       return;
     }
@@ -36,14 +38,15 @@ function Register() {
 
     try {
       await api.post("/api/auth/register", {
-        email,
+        email: normalizedEmail,
         password,
-        fullName: username,
+        fullName: normalizedFullName,
       });
       navigate("/");
     } catch (err) {
-      const apiMessage = err.response?.data?.message;
-      const errorMessage = apiMessage || err.message || 'Có lỗi xảy ra';
+      const apiMessage =
+        err.response?.data?.error || err.response?.data?.message;
+      const errorMessage = apiMessage || err.message || "Có lỗi xảy ra";
       setError(errorMessage);
     } finally {
       setLoading(false);

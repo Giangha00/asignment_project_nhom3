@@ -15,7 +15,10 @@ async function listMine(userId) {
   })
     .populate("workspaceId")
     .lean();
-  return members.map((m) => m.workspaceId).filter(Boolean);
+  // Bỏ workspace đã soft-delete (populate vẫn trả document nếu member chưa được gỡ).
+  return members
+    .map((m) => m.workspaceId)
+    .filter((ws) => ws && ws.deletedAt == null);
 }
 
 async function createWorkspace(app, userId, body) {
@@ -91,6 +94,10 @@ async function deleteWorkspace(app, userId, id) {
   if (String(ws.ownerId) !== String(userId)) throw new HttpError(403, "Only owner");
   ws.deletedAt = new Date();
   await ws.save();
+  await WorkspaceMember.updateMany(
+    { workspaceId: ws._id, deletedAt: null },
+    { $set: { deletedAt: new Date(), status: "removed" } }
+  );
   await logActivity(app, {
     workspaceId: ws._id,
     userId,
