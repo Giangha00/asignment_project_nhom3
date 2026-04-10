@@ -9,6 +9,13 @@ import api from "./lib/api";
 
 import "./App.css";
 
+/**
+ * Gốc routing + trạng thái đăng nhập.
+ *
+ * - Khởi động: GET /api/auth/session (cookie JWT) → có user thì coi như đã đăng nhập.
+ * - currentUser: dùng cho Home, header; null = chưa đăng nhập.
+ * - Đăng xuất: POST /api/auth/logout + xóa state (cookie được server clear).
+ */
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [pendingResetEmail, setPendingResetEmail] = useState("");
@@ -17,6 +24,7 @@ function App() {
   useEffect(() => {
     let cancelled = false;
 
+    /** Khôi phục phiên sau F5: nếu cookie còn hạn thì nhận user, không thì vào màn login. */
     const bootstrapSession = async () => {
       try {
         const response = await api.get("/api/auth/session");
@@ -43,6 +51,7 @@ function App() {
 
   const isAuthenticated = Boolean(currentUser);
 
+  /** Sau login thành công: cập nhật user trong memory (cookie đã được server set khi POST /login). */
   const handleLoginSuccess = ({ user }) => {
     setCurrentUser(user || null);
   };

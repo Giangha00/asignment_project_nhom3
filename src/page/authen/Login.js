@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../../lib/api";
 
+/**
+ * Màn đăng nhập: gửi email + mật khẩu → POST /api/auth/login.
+ * Server xác thực, set cookie JWT và trả `user`; App nhận qua onLoginSuccess rồi điều hướng /home.
+ */
 function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

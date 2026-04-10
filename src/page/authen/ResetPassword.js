@@ -2,6 +2,10 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import api from "../../lib/api";
 
+/**
+ * Đặt lại mật khẩu (bước 2): POST /api/auth/reset-password với email + mật khẩu mới.
+ * Email lấy từ state điều hướng hoặc pendingEmail từ App (sau forgot-password).
+ */
 function ResetPassword({ pendingEmail }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from 'lucide-react';
 import CreateBoard from './CreateBoard';
+import { BoardFormModal } from './BoardFormModal';
 
 /** Bộ gradient xen kẽ cho nền thẻ bảng (giống phong cách Trello). */
 const BOARD_COVER_CLASSES = [
@@ -27,9 +28,7 @@ function BoardCard({ board, index, onClick, onEdit, onDelete }) {
   const handleEdit = (event) => {
     event.stopPropagation();
     if (typeof onEdit !== 'function') return;
-    const nextName = window.prompt('Nhập tên bảng mới', board.name || '');
-    if (!nextName || !nextName.trim()) return;
-    onEdit(nextName.trim());
+    onEdit(board);
   };
 
   const handleDelete = (event) => {
@@ -74,6 +73,7 @@ function BoardCard({ board, index, onClick, onEdit, onDelete }) {
 
 const ContentBoard = ({ workspace, workspaces, onCreateBoard, onDeleteBoard, onSelectBoard, onUpdateBoard }) => {
   const boards = workspace?.boards ?? [];
+  const [editBoard, setEditBoard] = useState(null);
 
   return (
     <section className="rounded-xl bg-[#1d2125] px-4 py-6 sm:px-6">
@@ -97,11 +97,7 @@ const ContentBoard = ({ workspace, workspaces, onCreateBoard, onDeleteBoard, onS
                   onDeleteBoard(workspace?.id, board.id);
                 }
               }}
-              onEdit={(nextName) => {
-                if (typeof onUpdateBoard === 'function') {
-                  onUpdateBoard(workspace?.id, board.id, { name: nextName });
-                }
-              }}
+              onEdit={() => setEditBoard(board)}
               onClick={() => {
                 if (typeof onSelectBoard === 'function') {
                   onSelectBoard(board);
@@ -118,6 +114,24 @@ const ContentBoard = ({ workspace, workspaces, onCreateBoard, onDeleteBoard, onS
           />
         </div>
       </div>
+
+      <BoardFormModal
+        open={Boolean(editBoard)}
+        onClose={() => setEditBoard(null)}
+        mode="edit"
+        initialTitle={editBoard?.name || ''}
+        initialVisibility={editBoard?.visibility || 'workspace'}
+        initialCoverUrl={editBoard?.coverUrl || ''}
+        onSubmit={({ title, visibility, coverUrl }) => {
+          if (editBoard && typeof onUpdateBoard === 'function') {
+            onUpdateBoard(workspace?.id, editBoard.id, {
+              name: title,
+              visibility,
+              coverUrl,
+            });
+          }
+        }}
+      />
     </section>
   );
 };

@@ -2,6 +2,27 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
 import { buildDefaultWorkspace, mapWorkspaceToUi } from "../lib/workspaceUi";
 
+/** Backend không nhúng boards trong GET /workspaces — phải gọi GET /boards?workspaceId= */
+async function attachBoardsToWorkspaces(workspacesRaw) {
+  const list = Array.isArray(workspacesRaw) ? workspacesRaw : [];
+  return Promise.all(
+    list.map(async (ws) => {
+      const wid = ws._id ?? ws.id;
+      if (!wid) {
+        return { ...ws, boards: Array.isArray(ws.boards) ? ws.boards : [] };
+      }
+      try {
+        const br = await api.get("/api/boards", {
+          params: { workspaceId: String(wid), t: Date.now() },
+        });
+        return { ...ws, boards: Array.isArray(br.data) ? br.data : [] };
+      } catch {
+        return { ...ws, boards: [] };
+      }
+    })
+  );
+}
+
 export function mergeWithDefaultWorkspace(items, user) {
   const defaultWorkspace = buildDefaultWorkspace(user);
   const nonDefaultItems = items.filter((workspace) => workspace.id !== defaultWorkspace.id);
@@ -29,7 +50,9 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
     const loadWorkspaces = async () => {
       try {
         const response = await api.get("/api/workspaces");
-        const nextWorkspaces = (response.data || [])
+        const rawList = response.data || [];
+        const withBoards = await attachBoardsToWorkspaces(rawList);
+        const nextWorkspaces = withBoards
           .map((workspace) => mapWorkspaceToUi(workspace, resolvedUser))
           .filter(Boolean);
         const resolvedWorkspaces = mergeWithDefaultWorkspace(nextWorkspaces, resolvedUser);
