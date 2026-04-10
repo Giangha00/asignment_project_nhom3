@@ -1,15 +1,10 @@
 import React, { useEffect, useState } from "react";
-import {
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./page/authen/Login";
 import Register from "./page/authen/Register";
 import ForgotPassword from "./page/authen/ForgotPassword";
 import ResetPassword from "./page/authen/ResetPassword";
 import Home from "./page/home/Home";
-import WorkspaceUnifiedPage from "./page/workspace/WorkspaceUnifiedPage";
 import api from "./lib/api";
 
 import "./App.css";
@@ -96,16 +91,6 @@ function App() {
         element={
           isAuthenticated ? (
             <Home currentUser={currentUser} onLogout={handleLogout} />
-          ) : (
-            <Navigate to="/" replace />
-          )
-        }
-      />
-      <Route
-        path="/workspace/:workspaceId/:section?/:boardId?"
-        element={
-          isAuthenticated ? (
-            <WorkspaceUnifiedPage currentUser={currentUser} onLogout={handleLogout} />
           ) : (
             <Navigate to="/" replace />
           )
