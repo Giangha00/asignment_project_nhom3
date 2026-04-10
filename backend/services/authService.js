@@ -10,6 +10,15 @@ const emailCrypto = require("../utils/emailCrypto");
 
 const MIN_PASSWORD_LEN = 6;
 
+function buildTokenPayload(user) {
+  const plainUser = typeof user?.toJSON === "function" ? user.toJSON() : user;
+  return {
+    userId: String(user?._id || plainUser?._id || plainUser?.id || ""),
+    email: plainUser?.email || "",
+    fullName: plainUser?.fullName || "",
+  };
+}
+
 async function register({ email, password, fullName }) {
   if (!email || !password) throw new HttpError(400, "email and password required");
   const norm = emailCrypto.normalizeEmail(email);
@@ -25,14 +34,22 @@ async function register({ email, password, fullName }) {
     passwordHash,
     fullName: fullName || "",
   });
-  const token = signUserToken(String(user._id));
-  return { user, token };
+  const token = signUserToken(buildTokenPayload(user));
+  return { user: user.toJSON(), token };
 }
 
 async function login({ email, password }, { userAgent = "", ip = "" } = {}) {
   if (!email || !password) throw new HttpError(400, "email and password required");
-  const user = await User.findByEmailInput(email, "+passwordHash");
+  const normalizedEmail = emailCrypto.normalizeEmail(email);
+  const user = await User.findByEmailInput(normalizedEmail, "+passwordHash");
   if (!user || user.deletedAt) throw new HttpError(401, "Invalid credentials");
+  const storedEmail = emailCrypto.normalizeEmail(
+    user.email ||
+      (typeof user.getPlainEmail === "function" ? user.getPlainEmail() : "")
+  );
+  if (storedEmail !== normalizedEmail) {
+    throw new HttpError(401, "Invalid credentials");
+  }
   const ok = await user.comparePassword(password);
   if (!ok) {
     user.failedPasswordAttempts = (user.failedPasswordAttempts || 0) + 1;
@@ -61,7 +78,7 @@ async function login({ email, password }, { userAgent = "", ip = "" } = {}) {
     expiresAt,
   });
 
-  const token = signUserToken(String(user._id));
+  const token = signUserToken(buildTokenPayload(user));
   return {
     user: user.toJSON(),
     token,
