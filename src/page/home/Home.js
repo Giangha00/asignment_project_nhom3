@@ -28,6 +28,17 @@ function Home({ currentUser, onLogout }) {
   const getBoardApiId = (board) =>
     String(board?.apiId || board?._id || board?.boardId || board?.id || "");
 
+  /** Mô tả mặc định đồng bộ với quyền xem (giống lúc tạo bảng trong handleCreateBoard). */
+  const boardDescriptionForVisibility = (visibility) => {
+    const visibilityLabel =
+      visibility === "private"
+        ? "Riêng tư"
+        : visibility === "public"
+          ? "Công khai"
+          : "Không gian làm việc";
+    return `Quyền xem: ${visibilityLabel}`;
+  };
+
   useEffect(() => {
     const socket = getSocket();
     const workspaceIds = workspaces
@@ -172,12 +183,9 @@ function Home({ currentUser, onLogout }) {
       if (payload.description && String(payload.description).trim()) {
         boardDescription = String(payload.description).trim();
       } else {
-        const visibilityLabel = payload.visibility === 'private'
-          ? 'Riêng tư'
-          : payload.visibility === 'public'
-            ? 'Công khai'
-            : 'Không gian làm việc';
-        boardDescription = `Quyền xem: ${visibilityLabel}`;
+        boardDescription = boardDescriptionForVisibility(
+          payload.visibility || "workspace"
+        );
       }
     } else {
       const option = typeof payload === 'string' ? payload : 'board';
@@ -194,6 +202,9 @@ function Home({ currentUser, onLogout }) {
           payload && typeof payload === "object" && payload.visibility
             ? payload.visibility
             : "workspace",
+        ...(payload && typeof payload === "object" && payload.coverUrl
+          ? { coverUrl: payload.coverUrl }
+          : {}),
       });
       const createdBoard = response.data || {};
       addBoardToWorkspace(targetWorkspaceId, {
@@ -218,19 +229,25 @@ function Home({ currentUser, onLogout }) {
     const board = (targetWorkspace?.boards || []).find((item) => item.id === boardId);
     if (!board) return;
 
+    // Khi đổi quyền xem từ form sửa: cập nhật luôn description để không bị kẹt "Quyền xem: ..." cũ.
+    const patchToSend =
+      patch.visibility !== undefined && patch.description === undefined
+        ? { ...patch, description: boardDescriptionForVisibility(patch.visibility) }
+        : { ...patch };
+
     if (workspaceId === "default-workspace") {
-      updateBoardInWorkspace(workspaceId, boardId, patch);
+      updateBoardInWorkspace(workspaceId, boardId, patchToSend);
       return;
     }
 
     const apiId = getBoardApiId(board);
     if (!apiId) {
-      updateBoardInWorkspace(workspaceId, boardId, patch);
+      updateBoardInWorkspace(workspaceId, boardId, patchToSend);
       return;
     }
 
     try {
-      const response = await api.patch(`/api/boards/${apiId}`, patch);
+      const response = await api.patch(`/api/boards/${apiId}`, patchToSend);
       const updated = response.data || {};
       updateBoardInWorkspace(workspaceId, boardId, {
         ...updated,

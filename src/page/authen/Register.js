@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../../lib/api";
 
+/**
+ * Đăng ký: POST /api/auth/register tạo user mới trên server.
+ * Thành công thì chuyển về trang login (/) — user cần đăng nhập để có cookie phiên đầy đủ.
+ */
 function Register() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
