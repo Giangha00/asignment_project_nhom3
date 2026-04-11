@@ -28,10 +28,31 @@ function buildTokenPayload(user) {
   };
 }
 
+/** Tên hiển thị phải có ít nhất một chữ cái Latin a-z (không chỉ số/ký tự đặc biệt). */
+function assertFullNameHasLatinLetter(fullName) {
+  const s = String(fullName || "").trim();
+  if (!s) throw new HttpError(400, "Tên người dùng là bắt buộc");
+  if (!/[a-zA-Z]/.test(s)) {
+    throw new HttpError(400, "Tên người dùng phải có ít nhất một chữ cái (a-z).");
+  }
+}
+
+/** Phần trước @gmail.com không được chỉ gồm chữ số (tránh đăng ký kiểu 012345@gmail.com). */
+function assertGmailLocalNotDigitsOnly(normEmail) {
+  const lower = String(normEmail || "").toLowerCase().trim();
+  if (!lower.endsWith("@gmail.com")) return;
+  const local = lower.slice(0, -"@gmail.com".length);
+  if (local && /^\d+$/.test(local)) {
+    throw new HttpError(400, "Phần tên trước @gmail.com không được chỉ gồm số.");
+  }
+}
+
 /** Đăng ký: kiểm tra trùng email → hash password → tạo user → ký JWT. */
 async function register({ email, password, fullName }) {
   if (!email || !password) throw new HttpError(400, "email and password required");
+  assertFullNameHasLatinLetter(fullName);
   const norm = emailCrypto.normalizeEmail(email);
+  assertGmailLocalNotDigitsOnly(norm);
   const fields = User.buildEmailFields(email);
   const exists = await User.findOne({
     $or: [{ emailLookup: fields.emailLookup }, { email: norm }],

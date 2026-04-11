@@ -21,6 +21,15 @@ function Register() {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedFullName = username.trim();
 
+    if (!normalizedFullName) {
+      setError("Vui lòng nhập tên người dùng");
+      return;
+    }
+    if (!/[a-zA-Z]/.test(normalizedFullName)) {
+      setError("Tên người dùng phải có ít nhất một chữ cái (a-z).");
+      return;
+    }
+
     // Kiểm tra mật khẩu
     if (password !== confirmPassword) {
       setError("Mật khẩu không khớp");
@@ -35,6 +44,12 @@ function Register() {
     // Kiểm tra email phải có đuôi @gmail.com
     if (!normalizedEmail.endsWith("@gmail.com")) {
       setError("Email phải có đuôi @gmail.com");
+      return;
+    }
+
+    const gmailLocal = normalizedEmail.slice(0, -"@gmail.com".length);
+    if (/^\d+$/.test(gmailLocal)) {
+      setError("Phần tên trước @gmail.com không được chỉ gồm số.");
       return;
     }
 
