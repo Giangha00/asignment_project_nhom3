@@ -32,6 +32,10 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
       onSelectSection({ workspaceId, section: 'board' });
       return;
     }
+    if (section === 'members' && typeof onSelectSection === 'function') {
+      onSelectSection({ workspaceId, section: 'members' });
+      return;
+    }
     if (section === 'home') {
       if (typeof onSelectSection === 'function') {
         onSelectSection({ workspaceId, section: 'home' });
