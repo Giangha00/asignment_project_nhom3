@@ -50,7 +50,7 @@ function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+    <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 ">
       <div className="bg-white p-10 rounded-lg shadow-2xl w-full max-w-md">
         <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
           Đăng Nhập
