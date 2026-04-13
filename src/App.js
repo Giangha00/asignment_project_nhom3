@@ -107,6 +107,16 @@ function App() {
         }
       />
       <Route
+        path="/workspace/:workspaceId/:section"
+        element={
+          isAuthenticated ? (
+            <Home currentUser={currentUser} onLogout={handleLogout} />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
+      <Route
         path="/workspace/:workspaceId/board/:boardId"
         element={
           isAuthenticated ? (

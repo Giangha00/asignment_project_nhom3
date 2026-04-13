@@ -2,22 +2,78 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
 import { buildDefaultWorkspace, mapWorkspaceToUi } from "../lib/workspaceUi";
 
-/** Backend không nhúng boards trong GET /workspaces — phải gọi GET /boards?workspaceId= */
-async function attachBoardsToWorkspaces(workspacesRaw) {
+function extractUserId(value) {
+  if (!value) return "";
+  if (typeof value === "object") {
+    return String(value._id || value.id || "");
+  }
+  return String(value);
+}
+
+/** Backend không nhúng boards/members trong GET /workspaces — gọi API chi tiết theo workspace. */
+async function attachBoardsAndMembersToWorkspaces(workspacesRaw) {
   const list = Array.isArray(workspacesRaw) ? workspacesRaw : [];
   return Promise.all(
     list.map(async (ws) => {
       const wid = ws._id ?? ws.id;
       if (!wid) {
-        return { ...ws, boards: Array.isArray(ws.boards) ? ws.boards : [] };
+        return {
+          ...ws,
+          boards: Array.isArray(ws.boards) ? ws.boards : [],
+          members: Array.isArray(ws.members) ? ws.members : [],
+        };
       }
+
       try {
-        const br = await api.get("/api/boards", {
-          params: { workspaceId: String(wid), t: Date.now() },
+        const [boardsRes, membersRes] = await Promise.all([
+          api.get("/api/boards", {
+            params: { workspaceId: String(wid), t: Date.now() },
+          }),
+          api.get(`/api/workspaces/${String(wid)}/members`),
+        ]);
+
+        const boards = Array.isArray(boardsRes.data) ? boardsRes.data : [];
+        const members = Array.isArray(membersRes.data) ? membersRes.data : [];
+
+        const boardCountsByUserId = new Map();
+        await Promise.all(
+          boards.map(async (board) => {
+            const boardId = String(board?._id || board?.id || board?.boardId || "");
+            if (!boardId) return;
+
+            try {
+              const boardMembersRes = await api.get(`/api/boards/${boardId}/members`);
+              const boardMembers = Array.isArray(boardMembersRes.data) ? boardMembersRes.data : [];
+              boardMembers.forEach((item) => {
+                const userId = extractUserId(item?.userId);
+                if (!userId) return;
+                boardCountsByUserId.set(userId, (boardCountsByUserId.get(userId) || 0) + 1);
+              });
+            } catch {
+              // Ignore board-level member read errors to avoid breaking workspace load.
+            }
+          })
+        );
+
+        const membersWithBoardCount = members.map((member) => {
+          const userId = extractUserId(member?.userId);
+          return {
+            ...member,
+            boardsCount: userId ? boardCountsByUserId.get(userId) || 0 : 0,
+          };
         });
-        return { ...ws, boards: Array.isArray(br.data) ? br.data : [] };
+
+        return {
+          ...ws,
+          boards,
+          members: membersWithBoardCount,
+        };
       } catch {
-        return { ...ws, boards: [] };
+        return {
+          ...ws,
+          boards: [],
+          members: Array.isArray(ws.members) ? ws.members : [],
+        };
       }
     })
   );
@@ -51,8 +107,8 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
       try {
         const response = await api.get("/api/workspaces");
         const rawList = response.data || [];
-        const withBoards = await attachBoardsToWorkspaces(rawList);
-        const nextWorkspaces = withBoards
+        const withDetails = await attachBoardsAndMembersToWorkspaces(rawList);
+        const nextWorkspaces = withDetails
           .map((workspace) => mapWorkspaceToUi(workspace, resolvedUser))
           .filter(Boolean);
         const resolvedWorkspaces = mergeWithDefaultWorkspace(nextWorkspaces, resolvedUser);
@@ -147,40 +203,97 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
     );
   };
 
-  const inviteMember = (workspaceId, email) => {
-    const rawName = email.split("@")[0].replace(/[^a-zA-Z0-9]+/g, " ").trim();
-    const name = rawName
-      ? rawName
-          .split(/\s+/)
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(" ")
-      : "Thành viên mới";
-    const initials =
-      name
-        .split(" ")
-        .map((part) => part.charAt(0))
-        .join("")
-        .slice(0, 2)
-        .toUpperCase() || email.charAt(0).toUpperCase();
+  const inviteMember = async (workspaceId, email) => {
+    if (!workspaceId || !email) return;
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (!normalizedEmail) return;
 
-    const newMember = {
-      id: `member-${workspaceId}-${Date.now()}`,
-      name,
-      initials,
-      handle: `@${email.split("@")[0]}`,
-      role: "Thành viên",
-      lastActive: "Mới mời",
-    };
+    try {
+      const usersResponse = await api.get("/api/users");
+      const users = Array.isArray(usersResponse.data) ? usersResponse.data : [];
+      const targetUser = users.find(
+        (user) => String(user?.email || "").toLowerCase() === normalizedEmail
+      );
 
-    setWorkspaces((prev) =>
-      prev.map((workspace) =>
-        workspace.id === workspaceId
-          ? {
+      if (!targetUser) {
+        window.alert("Không tìm thấy tài khoản với email này.");
+        return;
+      }
+
+      const targetUserId = String(targetUser?._id || targetUser?.id || "");
+      if (!targetUserId) {
+        window.alert("Không xác định được người dùng để mời.");
+        return;
+      }
+
+      await api.post(`/api/workspaces/${workspaceId}/members`, {
+        userId: targetUserId,
+        role: "member",
+      });
+
+      const membersResponse = await api.get(`/api/workspaces/${workspaceId}/members`);
+      const refreshedMembers = Array.isArray(membersResponse.data)
+        ? membersResponse.data
+        : [];
+
+      setWorkspaces((prev) =>
+        prev.map((workspace) => {
+          if (workspace.id !== workspaceId) return workspace;
+          const mappedWorkspace = mapWorkspaceToUi(
+            {
               ...workspace,
-              members: [...(Array.isArray(workspace.members) ? workspace.members : []), newMember],
-            }
-          : workspace
-      )
+              members: refreshedMembers,
+            },
+            resolvedUser
+          );
+          return mappedWorkspace || workspace;
+        })
+      );
+    } catch (error) {
+      const apiMessage = error?.response?.data?.message || error?.response?.data?.error;
+      window.alert(apiMessage || "Không thể mời thành viên vào workspace.");
+    }
+  };
+
+  const removeMember = (workspaceId, memberId) => {
+    setWorkspaces((prev) =>
+      prev.map((workspace) => {
+        if (workspace.id !== workspaceId) return workspace;
+        const nextMembers = (Array.isArray(workspace.members) ? workspace.members : []).filter(
+          (member) => member.id !== memberId
+        );
+        return {
+          ...workspace,
+          members: nextMembers,
+        };
+      })
+    );
+  };
+
+  const leaveWorkspace = (workspaceId, memberId) => {
+    removeMember(workspaceId, memberId);
+  };
+
+  const changeMemberRole = (workspaceId, memberId) => {
+    setWorkspaces((prev) =>
+      prev.map((workspace) => {
+        if (workspace.id !== workspaceId) return workspace;
+        const nextMembers = (Array.isArray(workspace.members) ? workspace.members : []).map((member) => {
+          if (member.id !== memberId) return member;
+          const nextRole = String(member.role || "").toLowerCase().includes("quản trị")
+            ? "Thành viên"
+            : "Quản trị viên";
+          return {
+            ...member,
+            role: nextRole,
+          };
+        });
+
+        return {
+          ...workspace,
+          members: nextMembers,
+        };
+      })
     );
   };
 
@@ -247,8 +360,11 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
     activeWorkspace,
     activeWorkspaceId,
     addBoardToWorkspace,
+    changeMemberRole,
     inviteMember,
+    leaveWorkspace,
     removeBoardFromWorkspace,
+    removeMember,
     removeWorkspace,
     resolvedUser,
     setActiveWorkspaceId,

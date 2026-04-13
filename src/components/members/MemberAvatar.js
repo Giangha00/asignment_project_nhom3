@@ -1,62 +1,65 @@
-import React, { memo } from "react";
-import PropTypes from "prop-types";
-import { ChevronUp } from "lucide-react";
+import React from "react";
 
-/**
- * Avatar tròn: hoặc ảnh (nếu có avatarUrl), hoặc chữ viết tắt trên nền gradient.
- * memo: nếu props không đổi thì không render lại — nhẹ hơn khi danh sách dài.
- */
-function MemberAvatarComponent({
-  name = "",
-  initials = "",
-  avatarUrl = "",
-  backgroundClass,
-  showCornerBadge = true,
+const AVATAR_BG_PALETTE = [
+  "#2f67ff",
+  "#00a3bf",
+  "#0ea76d",
+  "#ff9f1a",
+  "#8a63ff",
+  "#d64e8a",
+];
+
+const pickAvatarColor = (seed = "") => {
+  if (!seed) return AVATAR_BG_PALETTE[0];
+  const hash = String(seed)
+    .split("")
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return AVATAR_BG_PALETTE[hash % AVATAR_BG_PALETTE.length];
+};
+
+const getInitials = (name = "", username = "") => {
+  const candidate = String(name || username).trim();
+  if (!candidate) return "NA";
+  const parts = candidate.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+};
+
+function MemberAvatar({
+  name,
+  username,
+  initials,
+  avatarUrl,
+  accentColor,
+  size = 40,
 }) {
-  const displayName = name?.trim() || "Thành viên";
-  // Dùng cho alt (ảnh) và aria-label (chữ) — trình đọc màn hình hiểu đây là ảnh đại diện ai
-  const label = `Ảnh đại diện của ${displayName}`;
-  const letter = initials?.trim() || "?";
+  const resolvedInitials = initials || getInitials(name, username);
+  const resolvedBg = accentColor || pickAvatarColor(username || name);
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name || username || "Member avatar"}
+        className="rounded-full object-cover"
+        style={{ height: size, width: size }}
+      />
+    );
+  }
 
   return (
-    <div className="relative shrink-0">
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt={label}
-          className="h-10 w-10 rounded-full object-cover"
-        />
-      ) : (
-        // Không có ảnh: không dùng <img> rỗng — dùng role="img" + aria-label tương đương alt
-        <div
-          role="img"
-          aria-label={label}
-          className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${backgroundClass}`}
-        >
-          {letter}
-        </div>
-      )}
-      {showCornerBadge && (
-        <span
-          className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border border-[#22272b] bg-[#3c444d] text-[#9fadbc]"
-          aria-hidden
-        >
-          <ChevronUp className="h-2.5 w-2.5" strokeWidth={2.5} />
-        </span>
-      )}
+    <div
+      className="flex items-center justify-center rounded-full text-sm font-bold text-white"
+      style={{
+        backgroundColor: resolvedBg,
+        height: size,
+        width: size,
+      }}
+      aria-hidden
+    >
+      {resolvedInitials}
     </div>
   );
 }
-
-MemberAvatarComponent.propTypes = {
-  name: PropTypes.string,
-  initials: PropTypes.string,
-  avatarUrl: PropTypes.string,
-  backgroundClass: PropTypes.string.isRequired,
-  showCornerBadge: PropTypes.bool,
-};
-
-const MemberAvatar = memo(MemberAvatarComponent);
-MemberAvatar.displayName = "MemberAvatar";
 
 export default MemberAvatar;

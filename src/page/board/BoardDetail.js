@@ -71,6 +71,20 @@ function mapCommentToUi(comment) {
   };
 }
 
+function mapBoardMemberToUi(member) {
+  const user = member?.userId && typeof member.userId === "object" ? member.userId : null;
+  const userId = user ? normalizeId(user) : String(member?.userId || "");
+
+  return {
+    id: normalizeId(member),
+    userId,
+    role: member?.role || "member",
+    name: user?.fullName || user?.name || user?.username || "Thành viên",
+    email: user?.email || "",
+    avatarUrl: user?.avatarUrl || "",
+  };
+}
+
 function formatDateTime(dateValue) {
   if (!dateValue) return "";
   try {
@@ -464,6 +478,12 @@ function BoardDetail() {
   const [listComposerOpen, setListComposerOpen] = useState(false);
   const [newListTitle, setNewListTitle] = useState("");
   const [newListError, setNewListError] = useState("");
+  const [boardMembers, setBoardMembers] = useState([]);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [inviteSuccess, setInviteSuccess] = useState("");
 
   // Load board + lists + cards from API
   const loadBoardData = useCallback(async () => {
@@ -479,12 +499,73 @@ function BoardDetail() {
       setBoardMeta(boardRes.data || null);
       setLists((Array.isArray(listsRes.data) ? listsRes.data : []).map(mapListToUi));
       setCards((Array.isArray(cardsRes.data) ? cardsRes.data : []).map(mapCardToUi));
+
+      try {
+        const membersRes = await api.get(`/api/boards/${boardId}/members`);
+        const rows = Array.isArray(membersRes.data) ? membersRes.data : [];
+        setBoardMembers(rows.map(mapBoardMemberToUi).filter((item) => item.id));
+      } catch {
+        setBoardMembers([]);
+      }
     } catch (err) {
       setLoadError(err?.response?.data?.message || "Không thể tải dữ liệu bảng.");
     } finally {
       setLoading(false);
     }
   }, [boardId]);
+
+  const handleInviteMember = async (event) => {
+    event.preventDefault();
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) {
+      setInviteError("Vui lòng nhập email.");
+      return;
+    }
+
+    setInviteLoading(true);
+    setInviteError("");
+    setInviteSuccess("");
+
+    try {
+      const usersRes = await api.get("/api/users");
+      const users = Array.isArray(usersRes.data) ? usersRes.data : [];
+      const targetUser = users.find(
+        (user) => String(user?.email || "").toLowerCase() === email
+      );
+
+      if (!targetUser) {
+        setInviteError("Không tìm thấy người dùng với email này.");
+        return;
+      }
+
+      const targetUserId = String(targetUser?._id || targetUser?.id || "");
+      if (!targetUserId) {
+        setInviteError("Không xác định được người dùng để mời.");
+        return;
+      }
+
+      const response = await api.post(`/api/boards/${boardId}/members`, {
+        userId: targetUserId,
+        role: "member",
+      });
+
+      const created = mapBoardMemberToUi(response.data || {});
+      setBoardMembers((prev) => {
+        const idx = prev.findIndex((item) => item.userId === created.userId);
+        if (idx === -1) return [...prev, created];
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...created };
+        return next;
+      });
+
+      setInviteSuccess("Đã mời thành viên vào bảng.");
+      setInviteEmail("");
+    } catch (err) {
+      setInviteError(err?.response?.data?.message || "Không thể mời thành viên.");
+    } finally {
+      setInviteLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadBoardData();
@@ -891,6 +972,11 @@ function BoardDetail() {
               <button
                 type="button"
                 title="Mời thành viên"
+                onClick={() => {
+                  setInviteOpen(true);
+                  setInviteError("");
+                  setInviteSuccess("");
+                }}
                 className="flex items-center gap-1.5 rounded-md border border-[#3c444d] bg-[#2c333a] px-3 py-1.5 text-sm font-medium text-[#9fadbc] hover:border-[#579dff] hover:text-white"
               >
                 <UserPlus className="h-4 w-4" />
@@ -1128,6 +1214,80 @@ function BoardDetail() {
           </div>
         </div>
       </div>
+
+      {inviteOpen && (
+        <div
+          className="fixed inset-0 z-40 flex items-start justify-center bg-black/60 px-4 py-16"
+          onClick={() => setInviteOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-[#3c444d] bg-[#1d2125] p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-white">Mời thành viên vào bảng</h3>
+              <button
+                type="button"
+                onClick={() => setInviteOpen(false)}
+                className="rounded p-1 text-[#9fadbc] hover:bg-white/10"
+                aria-label="Đóng"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleInviteMember} className="space-y-3">
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="Nhập email thành viên"
+                className="w-full rounded-lg border border-[#3c444d] bg-[#11161c] px-3 py-2 text-sm text-white outline-none focus:border-[#579dff]"
+              />
+              <button
+                type="submit"
+                disabled={inviteLoading}
+                className="w-full rounded-lg bg-[#579dff] px-3 py-2 text-sm font-semibold text-[#0c1f3d] transition hover:bg-[#6cabff] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {inviteLoading ? "Đang mời..." : "Mời vào bảng"}
+              </button>
+            </form>
+
+            {inviteError ? (
+              <p className="mt-3 text-xs text-[#ff8f8f]">{inviteError}</p>
+            ) : null}
+            {inviteSuccess ? (
+              <p className="mt-3 text-xs text-[#8fffb3]">{inviteSuccess}</p>
+            ) : null}
+
+            <div className="mt-4 border-t border-white/10 pt-3">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-[#8c9bab]">
+                Thành viên trong bảng ({boardMembers.length})
+              </p>
+              <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                {boardMembers.length === 0 ? (
+                  <p className="text-xs text-[#8c9bab]">Chưa có thành viên nào.</p>
+                ) : (
+                  boardMembers.map((member) => (
+                    <div
+                      key={member.id || member.userId}
+                      className="flex items-center justify-between rounded-lg bg-[#11161c] px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-white">{member.name}</p>
+                        <p className="truncate text-xs text-[#8c9bab]">{member.email || "-"}</p>
+                      </div>
+                      <span className="ml-3 rounded-md bg-[#2b323a] px-2 py-1 text-[11px] text-[#c8d1db]">
+                        {member.role === "admin" ? "Quản trị viên" : "Thành viên"}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom nav */}
       <nav className="pointer-events-none fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 justify-center px-2">
