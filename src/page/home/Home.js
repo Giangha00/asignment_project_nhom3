@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import HomeContent from "./HomeContent";
 import api from "../../lib/api";
 import { useWorkspaceShell } from "../../hooks/useWorkspaceShell";
@@ -51,6 +51,12 @@ function Home({ currentUser, onLogout }) {
           ? "Công khai"
           : "Không gian làm việc";
     return `Quyền xem: ${visibilityLabel}`;
+  };
+
+  const normalizeSectionFromPath = (section) => {
+    if (!section) return "home";
+    if (section === "boards") return "board";
+    return section;
   };
 
   useEffect(() => {
