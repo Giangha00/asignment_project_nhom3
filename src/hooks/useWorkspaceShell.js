@@ -2,6 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
 import { buildDefaultWorkspace, mapWorkspaceToUi } from "../lib/workspaceUi";
 
+function extractUserId(value) {
+  if (!value) return "";
+  if (typeof value === "object") {
+    return String(value._id || value.id || "");
+  }
+  return String(value);
+}
+
 /** Backend không nhúng boards/members trong GET /workspaces — gọi API chi tiết theo workspace. */
 async function attachBoardsAndMembersToWorkspaces(workspacesRaw) {
   const list = Array.isArray(workspacesRaw) ? workspacesRaw : [];
@@ -24,10 +32,41 @@ async function attachBoardsAndMembersToWorkspaces(workspacesRaw) {
           api.get(`/api/workspaces/${String(wid)}/members`),
         ]);
 
+        const boards = Array.isArray(boardsRes.data) ? boardsRes.data : [];
+        const members = Array.isArray(membersRes.data) ? membersRes.data : [];
+
+        const boardCountsByUserId = new Map();
+        await Promise.all(
+          boards.map(async (board) => {
+            const boardId = String(board?._id || board?.id || board?.boardId || "");
+            if (!boardId) return;
+
+            try {
+              const boardMembersRes = await api.get(`/api/boards/${boardId}/members`);
+              const boardMembers = Array.isArray(boardMembersRes.data) ? boardMembersRes.data : [];
+              boardMembers.forEach((item) => {
+                const userId = extractUserId(item?.userId);
+                if (!userId) return;
+                boardCountsByUserId.set(userId, (boardCountsByUserId.get(userId) || 0) + 1);
+              });
+            } catch {
+              // Ignore board-level member read errors to avoid breaking workspace load.
+            }
+          })
+        );
+
+        const membersWithBoardCount = members.map((member) => {
+          const userId = extractUserId(member?.userId);
+          return {
+            ...member,
+            boardsCount: userId ? boardCountsByUserId.get(userId) || 0 : 0,
+          };
+        });
+
         return {
           ...ws,
-          boards: Array.isArray(boardsRes.data) ? boardsRes.data : [],
-          members: Array.isArray(membersRes.data) ? membersRes.data : [],
+          boards,
+          members: membersWithBoardCount,
         };
       } catch {
         return {

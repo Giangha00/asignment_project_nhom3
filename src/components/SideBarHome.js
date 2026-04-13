@@ -28,18 +28,18 @@ const Sidebar = ({ workspaces, activeWorkspaceId, activeSection, onToggleWorkspa
 
   const navigateToSection = (workspaceId, section) => {
     if (!workspaceId) return;
-    if (section === 'board' && typeof onSelectSection === 'function') {
-      onSelectSection({ workspaceId, section: 'board' });
-      return;
+
+    const normalizedSection = section === 'boards' ? 'board' : section;
+    if (typeof onSelectSection === 'function') {
+      onSelectSection({ workspaceId, section: normalizedSection });
     }
+
     if (section === 'home') {
-      if (typeof onSelectSection === 'function') {
-        onSelectSection({ workspaceId, section: 'home' });
-      }
       navigate('/home');
       return;
     }
-    const pathSection = section === 'board' ? 'boards' : section;
+
+    const pathSection = normalizedSection === 'board' ? 'boards' : normalizedSection;
     navigate(`/workspace/${workspaceId}/${pathSection}`);
   };
 
