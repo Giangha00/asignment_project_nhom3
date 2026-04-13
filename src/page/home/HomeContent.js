@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React from "react";
+import CreateBoard from "../../components/CreateBoard";
+import { useHomeContent } from "../../hooks/useHomeContent";
 
 function HomeContent({
   workspace,
@@ -10,66 +12,15 @@ function HomeContent({
   onOpenBoardDetail,
   onInviteMember,
 }) {
-  const [workspaceName, setWorkspaceName] = useState("");
-  const [inviteByWorkspace, setInviteByWorkspace] = useState({});
-  const [boardByWorkspace, setBoardByWorkspace] = useState({});
-
-  const workspaceCount = workspaces.length;
-  const totalBoards = useMemo(
-    () => workspaces.reduce((sum, item) => sum + (item?.boards?.length || 0), 0),
-    [workspaces]
-  );
-
-  const getVisibilityLabel = (visibility) => {
-    if (visibility === "public") return "Công khai";
-    if (visibility === "workspace") return "Nội bộ workspace";
-    return "Riêng tư";
-  };
-
-  const handleCreateWorkspaceSubmit = (event) => {
-    event.preventDefault();
-    const name = workspaceName.trim();
-    if (!name) return;
-
-    Promise.resolve(
-      onCreateWorkspace({
-        name,
-        type: "default",
-        description: "",
-        visibility: "private",
-      })
-    ).then(() => {
-      setWorkspaceName("");
-    });
-  };
-
-  const handleCreateBoardSubmit = (event, workspaceId) => {
-    event.preventDefault();
-    const title = (boardByWorkspace[workspaceId] || "").trim();
-    if (!title) return;
-
-    onCreateBoard({
-      title,
-      workspaceId,
-      visibility: "workspace",
-    });
-
-    setBoardByWorkspace((prev) => ({ ...prev, [workspaceId]: "" }));
-  };
-
-  const handleInviteSubmit = (event, workspaceId) => {
-    event.preventDefault();
-    const email = (inviteByWorkspace[workspaceId] || "").trim();
-    if (!email) return;
-
-    onInviteMember(workspaceId, email);
-    setInviteByWorkspace((prev) => ({ ...prev, [workspaceId]: "" }));
-  };
+  const {
+    inviteByWorkspace,
+    setInviteByWorkspace,
+    getVisibilityLabel,
+    handleInviteSubmit,
+  } = useHomeContent({ workspaces, onCreateWorkspace, onCreateBoard, onInviteMember });
 
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      
-
       <section className="space-y-4">
         {workspaces.map((item) => {
           const boards = Array.isArray(item.boards) ? item.boards : [];
@@ -95,7 +46,7 @@ function HomeContent({
                   </div>
 
                   <p className="max-w-2xl text-sm text-[#8c9bab]">
-                    {item.description || "Workspace nay chua co mo ta. Ban co the them bang va moi thanh vien de bat dau."}
+                    {item.description || "Workspace này chưa có mô tả."}
                   </p>
 
                   <div className="flex flex-wrap gap-3 text-sm text-[#9fadbc]">
@@ -108,61 +59,36 @@ function HomeContent({
                   </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:w-[520px]">
-                  <form
-                    onSubmit={(event) => handleCreateBoardSubmit(event, item.id)}
-                    className="rounded-xl border border-[#2d3640] bg-[#10161b] p-3"
+                {/* Invite member form */}
+                <form
+                  onSubmit={(event) => handleInviteSubmit(event, item.id)}
+                  className="rounded-xl border border-[#2d3640] bg-[#10161b] p-3 lg:w-64"
+                >
+                  <label className="text-xs uppercase tracking-wider text-[#8c9bab]">
+                    Mời thành viên
+                  </label>
+                  <input
+                    value={inviteByWorkspace[item.id] || ""}
+                    onChange={(event) =>
+                      setInviteByWorkspace((prev) => ({
+                        ...prev,
+                        [item.id]: event.target.value,
+                      }))
+                    }
+                    placeholder="email@example.com"
+                    type="email"
+                    className="mt-2 w-full rounded-lg border border-[#2d3640] bg-[#0f1720] px-3 py-2 text-sm text-white outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="mt-2 w-full rounded-lg border border-[#3c444d] bg-[#151b21] px-3 py-2 text-sm font-semibold text-[#d1d7e0] hover:border-[#579dff] hover:text-white"
                   >
-                    <label className="text-xs uppercase tracking-wider text-[#8c9bab]">
-                      Tạo bảng trong workspace
-                    </label>
-                    <input
-                      value={boardByWorkspace[item.id] || ""}
-                      onChange={(event) =>
-                        setBoardByWorkspace((prev) => ({
-                          ...prev,
-                          [item.id]: event.target.value,
-                        }))
-                      }
-                      placeholder="Ten bang moi"
-                      className="mt-2 w-full rounded-lg border border-[#2d3640] bg-[#0f1720] px-3 py-2 text-sm text-white outline-none"
-                    />
-                    <button
-                      type="submit"
-                      className="mt-2 w-full rounded-lg bg-[#579dff] px-3 py-2 text-sm font-semibold text-[#1d2125] hover:bg-[#7fbfff]"
-                    >
-                      Tao bang
-                    </button>
-                  </form>
-
-                  <form
-                    onSubmit={(event) => handleInviteSubmit(event, item.id)}
-                    className="rounded-xl border border-[#2d3640] bg-[#10161b] p-3"
-                  >
-                    <label className="text-xs uppercase tracking-wider text-[#8c9bab]">
-                      Mời thành viên
-                    </label>
-                    <input
-                      value={inviteByWorkspace[item.id] || ""}
-                      onChange={(event) =>
-                        setInviteByWorkspace((prev) => ({
-                          ...prev,
-                          [item.id]: event.target.value,
-                        }))
-                      }
-                      placeholder="email@example.com"
-                      className="mt-2 w-full rounded-lg border border-[#2d3640] bg-[#0f1720] px-3 py-2 text-sm text-white outline-none"
-                    />
-                    <button
-                      type="submit"
-                      className="mt-2 w-full rounded-lg border border-[#3c444d] bg-[#151b21] px-3 py-2 text-sm font-semibold text-[#d1d7e0] hover:border-[#579dff] hover:text-white"
-                    >
-                      Gửi lời mời
-                    </button>
-                  </form>
-                </div>
+                    Gửi lời mời
+                  </button>
+                </form>
               </div>
 
+              {/* Board list */}
               <div className="mt-5">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-white">Danh sách bảng</h3>
@@ -170,34 +96,37 @@ function HomeContent({
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {boards.length > 0 ? (
-                    boards.map((board) => (
-                      <button
-                        type="button"
-                        key={board.id}
-                        onClick={() => {
-                          if (typeof onOpenBoardDetail === "function") {
-                            onOpenBoardDetail(item.id, board);
-                          } else if (typeof onOpenWorkspaceBoards === "function") {
-                            onOpenWorkspaceBoards(item.id);
-                          }
-                        }}
-                        className="group rounded-xl border border-[#2d3640] bg-[#10161b] p-4 transition hover:border-[#579dff]"
-                      >
-                        <div className="text-sm font-semibold text-white group-hover:text-[#a7d0ff]">
-                          {board.name}
-                        </div>
-                        <p className="mt-1 line-clamp-2 text-xs text-[#8c9bab]">
-                          {board.description || "Chua co mo ta cho bang nay."}
-                        </p>
-                        <div className="mt-3 text-xs font-medium text-[#579dff]">Mở board</div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-[#3c444d] bg-[#10161b] p-4 text-sm text-[#8c9bab]">
-                      Workspace này chưa có bảng nào. Hãy tạo bảng mới để nó xuất hiện tại đây.
-                    </div>
-                  )}
+                  {boards.map((board) => (
+                    <button
+                      type="button"
+                      key={board.id}
+                      onClick={() => {
+                        if (typeof onOpenBoardDetail === "function") {
+                          onOpenBoardDetail(item.id, board);
+                        } else if (typeof onOpenWorkspaceBoards === "function") {
+                          onOpenWorkspaceBoards(item.id);
+                        }
+                      }}
+                      className="group rounded-xl border border-[#2d3640] bg-[#10161b] p-4 transition hover:border-[#579dff] text-left"
+                    >
+                      <div className="text-sm font-semibold text-white group-hover:text-[#a7d0ff]">
+                        {board.name}
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-xs text-[#8c9bab]">
+                        {board.description || "Chưa có mô tả cho bảng này."}
+                      </p>
+                      <div className="mt-3 text-xs font-medium text-[#579dff]">Mở board</div>
+                    </button>
+                  ))}
+
+                  {/* Dùng lại component CreateBoard thay cho inline button tạo bảng */}
+                  <div className="min-h-[100px]">
+                    <CreateBoard
+                      workspaces={workspaces}
+                      defaultWorkspaceId={item.id}
+                      onCreateBoard={onCreateBoard}
+                    />
+                  </div>
                 </div>
               </div>
             </article>

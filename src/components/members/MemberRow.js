@@ -13,15 +13,16 @@ const actionBtnClass = boardBtnClass;
  * Một dòng trong danh sách thành viên (1 <li>).
  * avatarBackgroundClass tách ra khỏi member để không "nhét" field tạm vào object từ API.
  */
-function MemberRowComponent({ member, boardLabel, isCurrentMember, avatarBackgroundClass }) {
+function MemberRowComponent({ member, boardLabel, isCurrentMember }) {
   return (
     <li className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <MemberAvatar
           name={member.name}
+          username={member.handle}
           initials={member.initials}
           avatarUrl={member.avatarUrl}
-          backgroundClass={avatarBackgroundClass}
+          size={40}
         />
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
@@ -70,19 +71,17 @@ MemberRowComponent.propTypes = {
   member: workspaceMemberPropType.isRequired,
   boardLabel: PropTypes.string.isRequired,
   isCurrentMember: PropTypes.bool.isRequired,
-  avatarBackgroundClass: PropTypes.string.isRequired,
 };
 
 /**
- * memo + hàm so sánh tùy chỉnh: chỉ render lại hàng này khi member / nhãn / cờ "là tôi" / màu avatar thật sự đổi.
+ * memo + hàm so sánh tùy chỉnh: chỉ render lại hàng này khi member / nhãn / cờ "là tôi" thật sự đổi.
  * Giúp khi cha (ContentMembers) re-render vì gõ ô search, các hàng không đổi vẫn bỏ qua render.
  */
 const MemberRow = memo(MemberRowComponent, (prev, next) => {
   return (
     prev.member === next.member &&
     prev.boardLabel === next.boardLabel &&
-    prev.isCurrentMember === next.isCurrentMember &&
-    prev.avatarBackgroundClass === next.avatarBackgroundClass
+    prev.isCurrentMember === next.isCurrentMember
   );
 });
 MemberRow.displayName = "MemberRow";

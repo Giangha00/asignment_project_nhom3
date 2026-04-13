@@ -1,123 +1,68 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { Link } from "react-router-dom";
+import { useHeader } from "../hooks/useHeader";
+import MemberAvatar from "./members/MemberAvatar";
 
 const Header = ({ onCreateBoard, backTo, trialBadge, user, onLogout }) => {
-  const [searchText, setSearchText] = useState('');
-  const [recentSearches, setRecentSearches] = useState(['Bảng Trello của tôi', 'Bảng Demo', 'Thông tin của nhóm']);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-  const searchRef = useRef(null);
-  const userRef = useRef(null);
+  const {
+    searchText,
+    recentSearches,
+    searchOpen,
+    menuOpen,
+    userMenuOpen,
+    setUserMenuOpen,
+    menuRef,
+    searchRef,
+    userRef,
+    createOptions,
+    handleSearchChange,
+    handleSearchSubmit,
+    handleSearchFocus,
+    handleRecentSearchClick,
+    handleCreateClick,
+    handleOptionSelect,
+    handleLogout,
+  } = useHeader({ onCreateBoard, onLogout });
 
-  useEffect(() => {
-    const handleOutsideClick = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setSearchOpen(false);
-      }
-      if (userRef.current && !userRef.current.contains(event.target)) {
-        setUserMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, []);
-
-  const createOptions = [
-    { key: 'board', label: 'Tạo bảng' },
-    { key: 'workspace-view', label: 'Tạo dạng xem không gian làm việc' },
-    { key: 'template', label: 'Bắt đầu với mẫu' }
-  ];
-
-  const handleSearchChange = (event) => {
-    setSearchText(event.target.value);
-    setSearchOpen(true);
-  };
-
-  const handleSearchSubmit = (event) => {
-    event.preventDefault();
-    if (!searchText.trim()) return;
-
-    setRecentSearches(prev => {
-      const next = [searchText.trim(), ...prev.filter(item => item !== searchText.trim())];
-      return next.slice(0, 5);
-    });
-    setSearchOpen(false);
-    console.log('Search query:', searchText.trim());
-  };
-
-  const handleSearchFocus = () => {
-    setSearchOpen(true);
-  };
-
-  const handleRecentSearchClick = (value) => {
-    setSearchText(value);
-    setSearchOpen(false);
-  };
-
-  const handleCreateClick = () => {
-    setMenuOpen((prev) => !prev);
-  };
-
-  const handleOptionSelect = (option) => {
-    setMenuOpen(false);
-    if (typeof onCreateBoard === 'function') {
-      onCreateBoard(option.key);
-    }
-  };
-
-  const handleLogout = () => {
-    if (typeof onLogout === 'function') {
-      onLogout();
-    }
-    setUserMenuOpen(false);
-  };
-
-  const displayUser = user || { name: 'User', initials: 'U', email: '' };
+  const displayUser = user || { fullName: "User", initials: "U", email: "" };
 
   return (
     <nav className="h-12 px-2 flex items-center justify-between bg-[#1d2125] border-b border-[#3c444d] text-[#9fadbc] sticky top-0 z-50">
-      
-      {/* 1. Left Section: (tuỳ chọn) Quay lại + Logo Trello */}
+      {/* Left: back + logo */}
       <div className="flex items-center gap-1">
-        {backTo ? (
-          <Link
-            to={backTo}
-            className="p-2 text-[#dee4ea] hover:bg-[#3c444d] rounded-sm transition"
-            aria-label="Quay lại"
-          >
+        {backTo && (
+          <Link to={backTo} className="p-2 text-[#dee4ea] hover:bg-[#3c444d] rounded-sm transition" aria-label="Quay lại">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
           </Link>
-        ) : null}
+        )}
         <button type="button" className="p-2 hover:bg-[#3c444d] rounded-sm transition">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z" /></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z" />
+          </svg>
         </button>
-        
         <div className="flex items-center gap-1.5 px-2 py-1 hover:bg-[#3c444d] rounded-sm cursor-pointer transition">
           <div className="bg-[#579dff] p-0.5 rounded-[3px] flex items-center justify-center">
-            {/* Logo Trello Vector chuẩn */}
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#1d2125"><path d="M21 2.25H3c-.414 0-.75.336-.75.75v18c0 .414.336.75.75.75h18c.414 0 .75-.336.75-.75V3c0-.414-.336-.75-.75-.75zM10.125 15.75c0 .414-.336.75-.75.75H5.625c-.414 0-.75-.336-.75-.75V6.75c0-.414.336-.75.75-.75h3.75c.414 0 .75.336.75.75v9zM18.375 12c0 .414-.336.75-.75.75h-3.75c-.414 0-.75-.336-.75-.75V6.75c0-.414.336-.75.75-.75h3.75c.414 0 .75.336.75.75V12z" /></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#1d2125">
+              <path d="M21 2.25H3c-.414 0-.75.336-.75.75v18c0 .414.336.75.75.75h18c.414 0 .75-.336.75-.75V3c0-.414-.336-.75-.75-.75zM10.125 15.75c0 .414-.336.75-.75.75H5.625c-.414 0-.75-.336-.75-.75V6.75c0-.414.336-.75.75-.75h3.75c.414 0 .75.336.75.75v9zM18.375 12c0 .414-.336.75-.75.75h-3.75c-.414 0-.75-.336-.75-.75V6.75c0-.414.336-.75.75-.75h3.75c.414 0 .75.336.75.75V12z" />
+            </svg>
           </div>
           <span className="text-xl font-black text-[#dee4ea] tracking-tighter">Trello</span>
         </div>
       </div>
 
-      {/* 2. Middle Section: Search Bar & Create Button */}
+      {/* Middle: Search + Create */}
       <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 w-full max-w-[550px] px-4">
         <form onSubmit={handleSearchSubmit} ref={searchRef} className="relative flex-1">
           <div className="relative flex-1 group">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8c9bab] group-focus-within:text-black">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+              </svg>
             </div>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={searchText}
               onChange={handleSearchChange}
               onFocus={handleSearchFocus}
@@ -147,14 +92,19 @@ const Header = ({ onCreateBoard, backTo, trialBadge, user, onLogout }) => {
             </div>
           )}
         </form>
+
         <div className="relative" ref={menuRef}>
-          <button type="button" onClick={handleCreateClick} className="shrink-0 px-3 py-1.5 bg-[#579dff] hover:bg-[#85b8ff] text-[#1d2125] rounded-sm font-bold text-sm transition">
+          <button
+            type="button"
+            onClick={handleCreateClick}
+            className="shrink-0 px-3 py-1.5 bg-[#579dff] hover:bg-[#85b8ff] text-[#1d2125] rounded-sm font-bold text-sm transition"
+          >
             Tạo mới
           </button>
           {menuOpen && (
             <div className="absolute right-0 top-full mt-2 w-72 rounded-[14px] border border-[#3c444d] bg-[#171d24] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
               <div className="space-y-2">
-                {createOptions.map(option => (
+                {createOptions.map((option) => (
                   <button
                     key={option.key}
                     type="button"
@@ -168,65 +118,71 @@ const Header = ({ onCreateBoard, backTo, trialBadge, user, onLogout }) => {
             </div>
           )}
         </div>
-        {trialBadge ? (
+
+        {trialBadge && (
           <span className="hidden shrink-0 rounded-full border border-[#3c444d] px-2.5 py-0.5 text-xs text-[#dee4ea] lg:inline">
             {trialBadge}
           </span>
-        ) : null}
+        )}
       </div>
 
-      {/* 3. Right Section: Các Logo được sửa lại đẹp hơn theo hình mẫu */}
+      {/* Right: icons + user */}
       <div className="flex items-center gap-1">
-        {/* Info Icon (Tròn) */}
         <button className="p-2 hover:bg-[#3c444d] rounded-full transition text-[#9fadbc]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 16v-4" /><path d="M12 8h.01" />
+            <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
           </svg>
         </button>
-
-        {/* Notifications Icon (Chuông xoay) */}
         <button className="p-2 hover:bg-[#3c444d] rounded-full transition text-[#9fadbc] relative">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="-rotate-12">
             <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
             <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
           </svg>
         </button>
-
-        {/* Help/Question Icon */}
         <button className="p-2 hover:bg-[#3c444d] rounded-full transition text-[#9fadbc]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-            <path d="M12 17h.01" />
+            <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" />
           </svg>
         </button>
-        
-        {/* User Avatar */}
+
+        {/* User avatar + dropdown */}
         <div ref={userRef} className="relative ml-1">
           <button
-            onClick={() => setUserMenuOpen(prev => !prev)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1d7f5c] text-white text-[13px] font-bold transition border border-[#3c444d] hover:opacity-90"
+            onClick={() => setUserMenuOpen((prev) => !prev)}
+            className="flex items-center justify-center rounded-full transition border border-[#3c444d] hover:opacity-90 overflow-hidden"
+            style={{ width: 32, height: 32 }}
           >
-            {displayUser.initials}
+            <MemberAvatar
+              fullName={displayUser.fullName}
+              initials={displayUser.initials}
+              avatarUrl={displayUser.avatarUrl}
+              size={32}
+              className="text-[13px]"
+            />
           </button>
           {userMenuOpen && (
             <div className="absolute right-0 top-full z-30 mt-3 w-72 overflow-hidden rounded-[18px] border border-[#3c444d] bg-[#171d24] shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
               <div className="border-b border-[#2c3540] px-4 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2f67ff] text-lg font-bold text-white">{displayUser.initials}</div>
+                  <MemberAvatar
+                    fullName={displayUser.fullName}
+                    initials={displayUser.initials}
+                    avatarUrl={displayUser.avatarUrl}
+                    size={48}
+                    className="text-lg"
+                  />
                   <div>
-                    <div className="text-xs font-bold uppercase text-[#ffffff]">{displayUser.fullName}</div>
+                    <div className="text-xs font-bold uppercase text-white">{displayUser.fullName}</div>
                     <div className="text-xs text-[#9fadbc]">{displayUser.email}</div>
                   </div>
                 </div>
               </div>
               <div className="space-y-1 px-3 py-3">
-                <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">Quản lý tài khoản</button>
+                <button className="w-full rounded-xl px-3 py-2 text-left text-sm text-[#e4edf4] transition hover:bg-[#1f2834]">
+                  Quản lý tài khoản
+                </button>
               </div>
-              
               <div className="border-t border-[#2c3540] px-3 py-3">
-               
                 <button
                   type="button"
                   onClick={handleLogout}

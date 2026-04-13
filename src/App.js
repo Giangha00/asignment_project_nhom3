@@ -120,7 +120,7 @@ function App() {
         path="/workspace/:workspaceId/board/:boardId"
         element={
           isAuthenticated ? (
-            <BoardDetail />
+            <BoardDetail currentUser={currentUser} onLogout={handleLogout} />
           ) : (
             <Navigate to="/" replace />
           )
