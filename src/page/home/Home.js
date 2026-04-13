@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import HomeContent from "./HomeContent";
 import api from "../../lib/api";
 import { useWorkspaceShell } from "../../hooks/useWorkspaceShell";
 import WorkspaceLayout from "../../layouts/WorkspaceLayout";
 import ContentBoard from "../../components/ContentBoard";
+import ContentMembers from "../../components/ContentMembers";
 import { getSocket } from "../../lib/socket";
 
 function Home({ currentUser, onLogout }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeSection, setActiveSection] = useState("home");
   const {
     activeWorkspace,
@@ -24,6 +26,14 @@ function Home({ currentUser, onLogout }) {
     upsertWorkspace,
     workspaces,
   } = useWorkspaceShell(currentUser);
+
+  useEffect(() => {
+    const focus = location.state?.workspaceShellFocus;
+    if (!focus?.workspaceId || !focus?.section) return;
+    setActiveWorkspaceId(focus.workspaceId);
+    setActiveSection(focus.section);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, location.pathname, navigate, setActiveWorkspaceId]);
 
   const getBoardApiId = (board) =>
     String(board?.apiId || board?._id || board?.boardId || board?.id || "");
@@ -315,6 +325,16 @@ function Home({ currentUser, onLogout }) {
           onUpdateBoard={handleUpdateBoard}
           onDeleteBoard={handleDeleteBoard}
           onSelectBoard={(board) => openBoardDetailPage(activeWorkspace?.id, board)}
+        />
+      ) : activeSection === "members" ? (
+        // Màn Người cộng tác: cùng layout khung với ContentBoard; chi tiết xem ContentMembers.js
+        <ContentMembers
+          workspace={activeWorkspace}
+          user={resolvedUser}
+          onInviteMember={inviteMember}
+          onBack={() =>
+            handleSelectSection({ workspaceId: activeWorkspaceId, section: "home" })
+          }
         />
       ) : (
         <HomeContent
