@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
-import { buildDefaultWorkspace, mapWorkspaceToUi } from "../lib/workspaceUi";
+import { mapWorkspaceToUi } from "../lib/workspaceUi";
 
 function extractUserId(value) {
   if (!value) return "";
@@ -79,11 +79,6 @@ async function attachBoardsAndMembersToWorkspaces(workspacesRaw) {
   );
 }
 
-export function mergeWithDefaultWorkspace(items, user) {
-  const defaultWorkspace = buildDefaultWorkspace(user);
-  const nonDefaultItems = items.filter((workspace) => workspace.id !== defaultWorkspace.id);
-  return [defaultWorkspace, ...nonDefaultItems];
-}
 
 export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) {
   const resolvedUser = useMemo(
@@ -111,18 +106,16 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
         const nextWorkspaces = withDetails
           .map((workspace) => mapWorkspaceToUi(workspace, resolvedUser))
           .filter(Boolean);
-        const resolvedWorkspaces = mergeWithDefaultWorkspace(nextWorkspaces, resolvedUser);
 
         if (!cancelled) {
-          setWorkspaces(resolvedWorkspaces);
-          setActiveWorkspaceId((prev) => prev || initialActiveWorkspaceId || resolvedWorkspaces[0]?.id || null);
+          setWorkspaces(nextWorkspaces);
+          setActiveWorkspaceId((prev) => prev || initialActiveWorkspaceId || nextWorkspaces[0]?.id || null);
         }
       } catch (error) {
         console.error("Failed to load workspaces:", error);
         if (!cancelled) {
-          const fallbackWorkspaces = mergeWithDefaultWorkspace([], resolvedUser);
-          setWorkspaces(fallbackWorkspaces);
-          setActiveWorkspaceId((prev) => prev || initialActiveWorkspaceId || fallbackWorkspaces[0]?.id || null);
+          setWorkspaces([]);
+          setActiveWorkspaceId(null);
         }
       }
     };
@@ -150,18 +143,15 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
     if (!mappedWorkspace) return null;
 
     setWorkspaces((prev) => {
-      const source = prev.filter((workspace) => workspace.id === "default-workspace" || workspace.apiId);
+      const source = prev.filter((workspace) => workspace.apiId);
       const existingIndex = source.findIndex((workspace) => workspace.id === mappedWorkspace.id);
       if (existingIndex === -1) {
-        return mergeWithDefaultWorkspace([...source, mappedWorkspace], resolvedUser);
+        return [...source, mappedWorkspace];
       }
 
       const next = [...source];
-      next[existingIndex] = {
-        ...next[existingIndex],
-        ...mappedWorkspace,
-      };
-      return mergeWithDefaultWorkspace(next, resolvedUser);
+      next[existingIndex] = { ...next[existingIndex], ...mappedWorkspace };
+      return next;
     });
 
     setActiveWorkspaceId(mappedWorkspace.id);
@@ -174,16 +164,14 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
     setWorkspaces((prev) => {
       const remainingWorkspaces = prev.filter(
         (workspace) =>
-          workspace.id === "default-workspace" ||
-          (workspace.id !== workspaceId && workspace.apiId !== workspaceId)
+          workspace.id !== workspaceId && workspace.apiId !== workspaceId
       );
-      const nextWorkspaces = mergeWithDefaultWorkspace(remainingWorkspaces, resolvedUser);
 
       if (activeWorkspaceId === workspaceId) {
-        nextActiveId = nextWorkspaces[0]?.id || null;
+        nextActiveId = remainingWorkspaces[0]?.id || null;
       }
 
-      return nextWorkspaces;
+      return remainingWorkspaces;
     });
 
     if (activeWorkspaceId === workspaceId) {

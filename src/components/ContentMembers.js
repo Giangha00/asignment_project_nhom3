@@ -296,7 +296,6 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
                     member={member}
                     boardLabel={boardLabel}
                     isCurrentMember={me}
-                    avatarBackgroundClass={avatarBg(index)}
                   />
                 );
               })}

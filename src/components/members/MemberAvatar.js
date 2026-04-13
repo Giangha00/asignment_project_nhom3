@@ -27,21 +27,24 @@ const getInitials = (name = "", username = "") => {
 
 function MemberAvatar({
   name,
+  fullName,
   username,
   initials,
   avatarUrl,
   accentColor,
   size = 40,
+  className = "",
 }) {
-  const resolvedInitials = initials || getInitials(name, username);
-  const resolvedBg = accentColor || pickAvatarColor(username || name);
+  const displayName = fullName || name || username || "";
+  const resolvedInitials = initials || getInitials(displayName);
+  const resolvedBg = accentColor || pickAvatarColor(displayName);
 
   if (avatarUrl) {
     return (
       <img
         src={avatarUrl}
-        alt={name || username || "Member avatar"}
-        className="rounded-full object-cover"
+        alt={displayName || "Member avatar"}
+        className={`rounded-full object-cover ${className}`}
         style={{ height: size, width: size }}
       />
     );
@@ -49,7 +52,7 @@ function MemberAvatar({
 
   return (
     <div
-      className="flex items-center justify-center rounded-full text-sm font-bold text-white"
+      className={`flex items-center justify-center rounded-full text-sm font-bold text-white ${className}`}
       style={{
         backgroundColor: resolvedBg,
         height: size,
