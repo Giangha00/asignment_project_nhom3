@@ -1,21 +1,36 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import HomeContent from "./HomeContent";
 import api from "../../lib/api";
 import { useWorkspaceShell } from "../../hooks/useWorkspaceShell";
 import WorkspaceLayout from "../../layouts/WorkspaceLayout";
 import ContentBoard from "../../components/ContentBoard";
+import MemberContent from "../../components/MemberContent";
 import { getSocket } from "../../lib/socket";
 
 function Home({ currentUser, onLogout }) {
+  const { workspaceId: workspaceIdParam, section: sectionParam } = useParams();
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState("home");
+
+  const normalizeSectionFromPath = (pathSection) => {
+    if (pathSection === "boards") return "board";
+    if (pathSection === "members") return "members";
+    if (pathSection === "settings") return "settings";
+    return "home";
+  };
+
+  const [activeSection, setActiveSection] = useState(
+    normalizeSectionFromPath(sectionParam)
+  );
   const {
     activeWorkspace,
     activeWorkspaceId,
     addBoardToWorkspace,
+    changeMemberRole,
     inviteMember,
+    leaveWorkspace,
     removeBoardFromWorkspace,
+    removeMember,
     removeWorkspace,
     resolvedUser,
     setActiveWorkspaceId,
@@ -23,7 +38,7 @@ function Home({ currentUser, onLogout }) {
     updateBoardInWorkspace,
     upsertWorkspace,
     workspaces,
-  } = useWorkspaceShell(currentUser);
+  } = useWorkspaceShell(currentUser, workspaceIdParam || null);
 
   const getBoardApiId = (board) =>
     String(board?.apiId || board?._id || board?.boardId || board?.id || "");
@@ -38,6 +53,16 @@ function Home({ currentUser, onLogout }) {
           : "Không gian làm việc";
     return `Quyền xem: ${visibilityLabel}`;
   };
+
+  useEffect(() => {
+    setActiveSection(normalizeSectionFromPath(sectionParam));
+  }, [sectionParam]);
+
+  useEffect(() => {
+    if (workspaceIdParam) {
+      setActiveWorkspaceId(workspaceIdParam);
+    }
+  }, [workspaceIdParam, setActiveWorkspaceId]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -293,6 +318,21 @@ function Home({ currentUser, onLogout }) {
     }
   };
 
+  const handleRemoveMember = (member) => {
+    if (!activeWorkspace?.id || !member?.id) return;
+    removeMember(activeWorkspace.id, member.id);
+  };
+
+  const handleLeaveMember = (member) => {
+    if (!activeWorkspace?.id || !member?.id) return;
+    leaveWorkspace(activeWorkspace.id, member.id);
+  };
+
+  const handleChangeMemberRole = (member) => {
+    if (!activeWorkspace?.id || !member?.id) return;
+    changeMemberRole(activeWorkspace.id, member.id);
+  };
+
   return (
     <WorkspaceLayout
       activeSection={activeSection}
@@ -315,6 +355,14 @@ function Home({ currentUser, onLogout }) {
           onUpdateBoard={handleUpdateBoard}
           onDeleteBoard={handleDeleteBoard}
           onSelectBoard={(board) => openBoardDetailPage(activeWorkspace?.id, board)}
+        />
+      ) : activeSection === "members" ? (
+        <MemberContent
+          workspace={activeWorkspace}
+          onInviteMember={inviteMember}
+          onMemberRemove={handleRemoveMember}
+          onMemberLeave={handleLeaveMember}
+          onMemberChangeRole={handleChangeMemberRole}
         />
       ) : (
         <HomeContent

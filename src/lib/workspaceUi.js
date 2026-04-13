@@ -1,13 +1,91 @@
+function getInitials(name = "") {
+  const parts = String(name)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return "ND";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+}
+
+function mapMemberToUi(member, currentUser) {
+  if (!member) return null;
+
+  const nestedUser =
+    member.userId && typeof member.userId === "object" && !Array.isArray(member.userId)
+      ? member.userId
+      : null;
+
+  const id = String(member.id || member._id || member.memberId || "");
+  if (!id) return null;
+
+  const currentUserId = String(currentUser?._id || currentUser?.id || "");
+  const memberUserId = String(member.userId?._id || member.userId?.id || member.userId || "");
+
+  const resolvedEmail = member.email || nestedUser?.email || "";
+  const name =
+    member.name ||
+    member.fullName ||
+    nestedUser?.fullName ||
+    nestedUser?.name ||
+    "Người dùng";
+  const username =
+    member.username ||
+    String(member.handle || "")
+      .replace(/^@/, "")
+      .trim() ||
+    String(resolvedEmail || "user").split("@")[0];
+
+  const resolvedBoardsCount =
+    typeof member.boardsCount === "number"
+      ? member.boardsCount
+      : Array.isArray(member.boards)
+        ? member.boards.length
+        : null;
+
+  const resolvedRole = String(member.role || "").toLowerCase();
+  const uiRole =
+    resolvedRole === "admin"
+      ? "Quản trị viên"
+      : resolvedRole === "member"
+        ? "Thành viên"
+        : resolvedRole === "observer"
+          ? "Quan sát viên"
+          : member.role || "Thành viên";
+
+  return {
+    ...member,
+    id,
+    name,
+    username,
+    handle: member.handle || `@${username}`,
+    initials: member.initials || getInitials(name),
+    avatarUrl: member.avatarUrl || nestedUser?.avatarUrl || "",
+    role: uiRole,
+    lastActive: member.lastActive || "Mới tham gia",
+    boardsCount: resolvedBoardsCount,
+    isCurrentUser:
+      member.isCurrentUser !== undefined
+        ? Boolean(member.isCurrentUser)
+        : Boolean(currentUserId && memberUserId && currentUserId === memberUserId),
+  };
+}
+
 function buildDefaultMembers(currentUser) {
   if (!currentUser) return [];
+  const username = String(currentUser.email || "user").split("@")[0];
   return [
     {
       id: `member-${currentUser._id || currentUser.id || "me"}`,
       name: currentUser.name || currentUser.fullName || "Người dùng",
-      initials: currentUser.initials || "ND",
-      handle: `@${String(currentUser.email || "user").split("@")[0]}`,
+      username,
+      initials: currentUser.initials || getInitials(currentUser.name || currentUser.fullName || ""),
+      handle: `@${username}`,
+      avatarUrl: currentUser.avatarUrl || "",
       role: currentUser.role || "Quản trị viên",
       lastActive: "Mới tham gia",
+      boardsCount: 1,
+      isCurrentUser: true,
     },
   ];
 }
@@ -73,7 +151,7 @@ export function mapWorkspaceToUi(workspace, currentUser) {
       : [],
     members:
       Array.isArray(workspace.members) && workspace.members.length > 0
-        ? workspace.members
+        ? workspace.members.map((member) => mapMemberToUi(member, currentUser)).filter(Boolean)
         : buildDefaultMembers(currentUser),
   };
 }
