@@ -1,27 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import HomeContent from "./HomeContent";
 import api from "../../lib/api";
 import { useWorkspaceShell } from "../../hooks/useWorkspaceShell";
 import WorkspaceLayout from "../../layouts/WorkspaceLayout";
 import ContentBoard from "../../components/ContentBoard";
-import MemberContent from "../../components/MemberContent";
+import ContentMembers from "../../components/ContentMembers";
 import { getSocket } from "../../lib/socket";
 
 function Home({ currentUser, onLogout }) {
   const { workspaceId: workspaceIdParam, section: sectionParam } = useParams();
   const navigate = useNavigate();
-
-  const normalizeSectionFromPath = (pathSection) => {
-    if (pathSection === "boards") return "board";
-    if (pathSection === "members") return "members";
-    if (pathSection === "settings") return "settings";
-    return "home";
-  };
-
-  const [activeSection, setActiveSection] = useState(
-    normalizeSectionFromPath(sectionParam)
-  );
+  const location = useLocation();
+  const [activeSection, setActiveSection] = useState("home");
   const {
     activeWorkspace,
     activeWorkspaceId,
@@ -39,6 +30,14 @@ function Home({ currentUser, onLogout }) {
     upsertWorkspace,
     workspaces,
   } = useWorkspaceShell(currentUser, workspaceIdParam || null);
+
+  useEffect(() => {
+    const focus = location.state?.workspaceShellFocus;
+    if (!focus?.workspaceId || !focus?.section) return;
+    setActiveWorkspaceId(focus.workspaceId);
+    setActiveSection(focus.section);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.state, location.pathname, navigate, setActiveWorkspaceId]);
 
   const getBoardApiId = (board) =>
     String(board?.apiId || board?._id || board?.boardId || board?.id || "");
@@ -93,7 +92,9 @@ function Home({ currentUser, onLogout }) {
       const resolvedWorkspaceId =
         workspaceIdFromPayload ||
         workspaces.find((ws) =>
-          (Array.isArray(ws?.boards) ? ws.boards : []).some((board) => board.id === boardId)
+          (Array.isArray(ws?.boards) ? ws.boards : []).some(
+            (board) => board.id === boardId,
+          ),
         )?.id;
 
       if (!resolvedWorkspaceId) return;
@@ -105,10 +106,14 @@ function Home({ currentUser, onLogout }) {
     };
 
     const handleBoardDeleted = (payload) => {
-      const boardId = String(payload?.id || payload?._id || payload?.boardId || "");
+      const boardId = String(
+        payload?.id || payload?._id || payload?.boardId || "",
+      );
       if (!boardId) return;
       const workspaceId = workspaces.find((ws) =>
-        (Array.isArray(ws?.boards) ? ws.boards : []).some((board) => board.id === boardId)
+        (Array.isArray(ws?.boards) ? ws.boards : []).some(
+          (board) => board.id === boardId,
+        ),
       )?.id;
       if (!workspaceId) return;
       removeBoardFromWorkspace(workspaceId, boardId);
@@ -141,7 +146,10 @@ function Home({ currentUser, onLogout }) {
   };
 
   const handleWorkspaceCreated = (workspaceInput) => {
-    upsertWorkspace({ ...workspaceInput, isOpen: workspaceInput?.isOpen ?? true });
+    upsertWorkspace({
+      ...workspaceInput,
+      isOpen: workspaceInput?.isOpen ?? true,
+    });
   };
 
   const handleCreateWorkspace = async (newWorkspace) => {
@@ -165,22 +173,28 @@ function Home({ currentUser, onLogout }) {
     upsertWorkspace(workspaceInput);
   };
 
-  const handleCreateBoard = async (payload = 'board') => {
+  const handleCreateBoard = async (payload = "board") => {
     let targetWorkspaceId = activeWorkspaceId ?? workspaces[0]?.id;
-    if (payload && typeof payload === 'object' && payload.workspaceId) {
+    if (payload && typeof payload === "object" && payload.workspaceId) {
       targetWorkspaceId = payload.workspaceId;
     }
     if (targetWorkspaceId === "default-workspace") {
       // "default-workspace" is UI-only and does not exist in DB.
       // Route board creation to the first persisted workspace to avoid data loss after reload.
-      const persistedWorkspace = workspaces.find((ws) => ws.id && ws.id !== "default-workspace");
+      const persistedWorkspace = workspaces.find(
+        (ws) => ws.id && ws.id !== "default-workspace",
+      );
       if (!persistedWorkspace) {
-        alert("Không thể lưu bảng trong workspace mặc định. Vui lòng tạo workspace thật trước.");
+        alert(
+          "Không thể lưu bảng trong workspace mặc định. Vui lòng tạo workspace thật trước.",
+        );
         return;
       }
       targetWorkspaceId = persistedWorkspace.id;
     }
-    const targetWorkspace = workspaces.find(ws => ws.id === targetWorkspaceId);
+    const targetWorkspace = workspaces.find(
+      (ws) => ws.id === targetWorkspaceId,
+    );
     if (!targetWorkspace) return;
     const targetBoards = Array.isArray(targetWorkspace.boards)
       ? targetWorkspace.boards
@@ -190,32 +204,33 @@ function Home({ currentUser, onLogout }) {
 
     const boardNames = {
       board: `Bảng mới ${nextIndex}`,
-      'workspace-view': `Bảng xem ${nextIndex}`,
-      template: `Bảng mẫu ${nextIndex}`
+      "workspace-view": `Bảng xem ${nextIndex}`,
+      template: `Bảng mẫu ${nextIndex}`,
     };
 
     const boardDescriptions = {
-      board: 'Bảng mới được tạo từ Header',
-      'workspace-view': 'Bảng dạng xem không gian làm việc',
-      template: 'Bảng bắt đầu với mẫu'
+      board: "Bảng mới được tạo từ Header",
+      "workspace-view": "Bảng dạng xem không gian làm việc",
+      template: "Bảng bắt đầu với mẫu",
     };
 
-    let boardName = '';
-    let boardDescription = '';
+    let boardName = "";
+    let boardDescription = "";
 
-    if (payload && typeof payload === 'object' && payload.title) {
+    if (payload && typeof payload === "object" && payload.title) {
       boardName = payload.title;
       if (payload.description && String(payload.description).trim()) {
         boardDescription = String(payload.description).trim();
       } else {
         boardDescription = boardDescriptionForVisibility(
-          payload.visibility || "workspace"
+          payload.visibility || "workspace",
         );
       }
     } else {
-      const option = typeof payload === 'string' ? payload : 'board';
+      const option = typeof payload === "string" ? payload : "board";
       boardName = boardNames[option] || `Bảng mới ${nextIndex}`;
-      boardDescription = boardDescriptions[option] || 'Bảng mới được tạo từ Header';
+      boardDescription =
+        boardDescriptions[option] || "Bảng mới được tạo từ Header";
     }
 
     try {
@@ -241,7 +256,8 @@ function Home({ currentUser, onLogout }) {
       });
     } catch (error) {
       console.error("Failed to create board:", error);
-      const apiMessage = error.response?.data?.message || error.response?.data?.error;
+      const apiMessage =
+        error.response?.data?.message || error.response?.data?.error;
       alert(apiMessage || "Không thể tạo bảng. Vui lòng thử lại.");
       return;
     }
@@ -251,13 +267,18 @@ function Home({ currentUser, onLogout }) {
 
   const handleUpdateBoard = async (workspaceId, boardId, patch) => {
     const targetWorkspace = workspaces.find((ws) => ws.id === workspaceId);
-    const board = (targetWorkspace?.boards || []).find((item) => item.id === boardId);
+    const board = (targetWorkspace?.boards || []).find(
+      (item) => item.id === boardId,
+    );
     if (!board) return;
 
     // Khi đổi quyền xem từ form sửa: cập nhật luôn description để không bị kẹt "Quyền xem: ..." cũ.
     const patchToSend =
       patch.visibility !== undefined && patch.description === undefined
-        ? { ...patch, description: boardDescriptionForVisibility(patch.visibility) }
+        ? {
+            ...patch,
+            description: boardDescriptionForVisibility(patch.visibility),
+          }
         : { ...patch };
 
     if (workspaceId === "default-workspace") {
@@ -281,20 +302,27 @@ function Home({ currentUser, onLogout }) {
       });
     } catch (error) {
       console.error("Failed to update board:", error);
-      const apiMessage = error.response?.data?.message || error.response?.data?.error;
+      const apiMessage =
+        error.response?.data?.message || error.response?.data?.error;
       alert(apiMessage || "Không thể sửa bảng. Vui lòng thử lại.");
     }
   };
 
   const openBoardDetailPage = (workspaceId, board) => {
-    const nextBoardId = String(board?.apiId || board?._id || board?.boardId || board?.id || "");
+    const nextBoardId = String(
+      board?.apiId || board?._id || board?.boardId || board?.id || "",
+    );
     if (!workspaceId || !nextBoardId) return;
-    navigate(`/workspace/${encodeURIComponent(workspaceId)}/board/${encodeURIComponent(nextBoardId)}`);
+    navigate(
+      `/workspace/${encodeURIComponent(workspaceId)}/board/${encodeURIComponent(nextBoardId)}`,
+    );
   };
 
   const handleDeleteBoard = async (workspaceId, boardId) => {
     const targetWorkspace = workspaces.find((ws) => ws.id === workspaceId);
-    const board = (targetWorkspace?.boards || []).find((item) => item.id === boardId);
+    const board = (targetWorkspace?.boards || []).find(
+      (item) => item.id === boardId,
+    );
     if (!board) return;
 
     if (workspaceId === "default-workspace") {
@@ -313,7 +341,8 @@ function Home({ currentUser, onLogout }) {
       removeBoardFromWorkspace(workspaceId, boardId);
     } catch (error) {
       console.error("Failed to delete board:", error);
-      const apiMessage = error.response?.data?.message || error.response?.data?.error;
+      const apiMessage =
+        error.response?.data?.message || error.response?.data?.error;
       alert(apiMessage || "Không thể xóa bảng. Vui lòng thử lại.");
     }
   };
@@ -354,15 +383,22 @@ function Home({ currentUser, onLogout }) {
           onCreateBoard={handleCreateBoard}
           onUpdateBoard={handleUpdateBoard}
           onDeleteBoard={handleDeleteBoard}
-          onSelectBoard={(board) => openBoardDetailPage(activeWorkspace?.id, board)}
+          onSelectBoard={(board) =>
+            openBoardDetailPage(activeWorkspace?.id, board)
+          }
         />
       ) : activeSection === "members" ? (
-        <MemberContent
+        // Màn Người cộng tác: cùng layout khung với ContentBoard; chi tiết xem ContentMembers.js
+        <ContentMembers
           workspace={activeWorkspace}
+          user={resolvedUser}
           onInviteMember={inviteMember}
-          onMemberRemove={handleRemoveMember}
-          onMemberLeave={handleLeaveMember}
-          onMemberChangeRole={handleChangeMemberRole}
+          onBack={() =>
+            handleSelectSection({
+              workspaceId: activeWorkspaceId,
+              section: "home",
+            })
+          }
         />
       ) : (
         <HomeContent
@@ -382,4 +418,4 @@ function Home({ currentUser, onLogout }) {
   );
 }
 
-export default Home ;
+export default Home;
