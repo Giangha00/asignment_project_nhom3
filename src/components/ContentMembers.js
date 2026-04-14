@@ -1,28 +1,14 @@
 /**
- * Màn "Người cộng tác": hiển thị danh sách thành viên workspace, lọc tên, mời bằng email, tab yêu cầu (placeholder).
- * Logic nặng tách nhỏ: MemberRow / MemberAvatar / BadgeRole; ô tìm dùng debounce để đỡ re-render khi gõ.
+ * Màn "Người cộng tác": danh sách thành viên, lọc tên, mời bằng email (gọi onInviteMember → API trong useWorkspaceShell).
+ * Mời: loading trên nút "Gửi lời mời", lỗi trong popover, thành công hiện toast ngắn dưới nút mở form.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import PropTypes from "prop-types";
 import { UserPlus, X } from "lucide-react";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import MemberRow from "./members/MemberRow";
-import { workspacePropType } from "./members/memberPropTypes";
 
 /** Số hiển thị kiểu "đang có / tối đa" (vd 4/10); sau có thể lấy giới hạn thật từ API. */
 const MEMBER_CAP = 10;
-
-/** 4 màu gradient xen kẽ theo dòng — avatar chữ không bị một màu. */
-const AVATAR_BACKGROUNDS = [
-  "bg-gradient-to-br from-teal-500 to-cyan-700",
-  "bg-gradient-to-br from-emerald-500 to-green-700",
-  "bg-gradient-to-br from-sky-500 to-indigo-600",
-  "bg-gradient-to-br from-violet-500 to-purple-700",
-];
-
-function avatarBg(index) {
-  return AVATAR_BACKGROUNDS[index % AVATAR_BACKGROUNDS.length];
-}
 
 function ContentMembers({ workspace, user, onInviteMember, onBack }) {
   // Luôn là mảng — tránh crash khi API/workspace chưa có members
@@ -38,6 +24,11 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
   const [activeTab, setActiveTab] = useState("members");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [email, setEmail] = useState("");
+  // Trạng thái gửi lời mời: chặn double-submit, đổi nhãn nút "Đang gửi…"
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  // Thông báo thành công sau khi đóng popover (tự ẩn sau 5s)
+  const [inviteToast, setInviteToast] = useState("");
   const inviteRef = useRef(null);
   // id duy nhất theo workspace — trùng label htmlFor nếu nhiều form trên trang
   const emailFieldId = useMemo(
@@ -55,6 +46,24 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
     document.addEventListener("mousedown", handleOutside);
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
+
+  useEffect(() => {
+    if (inviteOpen) {
+      setInviteError("");
+    }
+  }, [inviteOpen]);
+
+  // Đổi workspace → xóa thông báo cũ để không lẫn giữa các không gian làm việc
+  useEffect(() => {
+    setInviteError("");
+    setInviteToast("");
+  }, [workspace?.id]);
+
+  useEffect(() => {
+    if (!inviteToast) return undefined;
+    const t = window.setTimeout(() => setInviteToast(""), 5000);
+    return () => window.clearTimeout(t);
+  }, [inviteToast]);
 
   // Dòng của user đăng nhập → hiện "Rời đi" thay vì "Loại bỏ"
   const isCurrentMember = (member) => {
@@ -77,16 +86,30 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
     });
   }, [members, debouncedFilter]);
 
-  // Gọi lên Home/useWorkspaceShell để thêm thành viên vào state (không reload trang)
-  const handleInviteSubmit = (e) => {
+  // onInviteMember trả Promise<{ ok, message }> từ useWorkspaceShell.inviteMember
+  const handleInviteSubmit = async (e) => {
     e.preventDefault();
     const trimmed = email.trim();
     if (!trimmed || !workspace?.id) return;
-    if (typeof onInviteMember === "function") {
-      onInviteMember(workspace.id, trimmed);
+    if (inviteLoading) return;
+    if (typeof onInviteMember !== "function") return;
+
+    setInviteError("");
+    setInviteLoading(true);
+    try {
+      const result = await Promise.resolve(onInviteMember(workspace.id, trimmed));
+      if (result && result.ok === false) {
+        setInviteError(result.message || "Không thể gửi lời mời.");
+        return;
+      }
+      setInviteToast(result?.message || "Đã mời thành viên thành công.");
+      setEmail("");
+      setInviteOpen(false);
+    } catch {
+      setInviteError("Đã xảy ra lỗi. Vui lòng thử lại.");
+    } finally {
+      setInviteLoading(false);
     }
-    setEmail("");
-    setInviteOpen(false);
   };
 
   return (
@@ -218,7 +241,8 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
               onClick={() => setInviteOpen((v) => !v)}
               aria-expanded={inviteOpen}
               aria-haspopup="dialog"
-              className="inline-flex items-center gap-2 whitespace-nowrap rounded-[3px] bg-[#579dff] px-4 py-2.5 text-sm font-semibold text-[#1d2125] hover:bg-[#85b8ff]"
+              disabled={inviteLoading}
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-[3px] bg-[#579dff] px-4 py-2.5 text-sm font-semibold text-[#1d2125] hover:bg-[#85b8ff] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <UserPlus
                 className="h-4 w-4 shrink-0"
@@ -227,6 +251,12 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
               />
               Mời các thành viên Không gian làm việc
             </button>
+            {/* Thông báo thành công (popover đã đóng nên hiện ở đây, không nằm trong dialog) */}
+            {inviteToast && (
+              <p className="absolute right-0 top-full z-10 mt-1 max-w-[min(100vw-2rem,22rem)] text-right text-xs text-[#8fffb3]">
+                {inviteToast}
+              </p>
+            )}
             {inviteOpen && (
               <div
                 ref={inviteRef}
@@ -251,9 +281,15 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="email@example.com"
                     required
+                    disabled={inviteLoading}
                     autoComplete="email"
-                    className="mb-3 w-full rounded-[3px] border border-[#3c444d] bg-[#1d2125] px-3 py-2 text-sm text-white outline-none focus:border-[#579dff]"
+                    className="mb-3 w-full rounded-[3px] border border-[#3c444d] bg-[#1d2125] px-3 py-2 text-sm text-white outline-none focus:border-[#579dff] disabled:opacity-60"
                   />
+                  {inviteError && (
+                    <p className="mb-3 text-xs text-[#ff8f8f]" role="alert">
+                      {inviteError}
+                    </p>
+                  )}
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
@@ -261,15 +297,17 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
                         setInviteOpen(false);
                         setEmail("");
                       }}
-                      className="rounded-[3px] border border-[#3c444d] px-3 py-1.5 text-sm text-[#9fadbc] hover:bg-[#333c43]"
+                      disabled={inviteLoading}
+                      className="rounded-[3px] border border-[#3c444d] px-3 py-1.5 text-sm text-[#9fadbc] hover:bg-[#333c43] disabled:opacity-60"
                     >
                       Hủy
                     </button>
                     <button
                       type="submit"
-                      className="rounded-[3px] bg-[#579dff] px-3 py-1.5 text-sm font-semibold text-[#1d2125] hover:bg-[#85b8ff]"
+                      disabled={inviteLoading}
+                      className="rounded-[3px] bg-[#579dff] px-3 py-1.5 text-sm font-semibold text-[#1d2125] hover:bg-[#85b8ff] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Gửi lời mời
+                      {inviteLoading ? "Đang gửi…" : "Gửi lời mời"}
                     </button>
                   </div>
                 </form>

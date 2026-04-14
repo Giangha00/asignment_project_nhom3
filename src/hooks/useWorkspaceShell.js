@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../lib/api";
 import { mapWorkspaceToUi } from "../lib/workspaceUi";
 
@@ -8,6 +8,53 @@ function extractUserId(value) {
     return String(value._id || value.id || "");
   }
   return String(value);
+}
+
+/**
+ * Tải bảng + danh sách thành viên của một workspace qua API.
+ * Gắn thêm boardsCount (số bảng user tham gia) để UI hiển thị giống lúc load trang.
+ * Dùng lại cho: load danh sách workspace, sau khi mời thành viên, và khi socket báo đổi thành viên.
+ */
+async function loadWorkspaceBoardsAndMembers(wid) {
+  const [boardsRes, membersRes] = await Promise.all([
+    api.get("/api/boards", {
+      params: { workspaceId: String(wid), t: Date.now() },
+    }),
+    api.get(`/api/workspaces/${String(wid)}/members`),
+  ]);
+
+  const boards = Array.isArray(boardsRes.data) ? boardsRes.data : [];
+  const members = Array.isArray(membersRes.data) ? membersRes.data : [];
+
+  const boardCountsByUserId = new Map();
+  await Promise.all(
+    boards.map(async (board) => {
+      const boardId = String(board?._id || board?.id || board?.boardId || "");
+      if (!boardId) return;
+
+      try {
+        const boardMembersRes = await api.get(`/api/boards/${boardId}/members`);
+        const boardMembers = Array.isArray(boardMembersRes.data) ? boardMembersRes.data : [];
+        boardMembers.forEach((item) => {
+          const userId = extractUserId(item?.userId);
+          if (!userId) return;
+          boardCountsByUserId.set(userId, (boardCountsByUserId.get(userId) || 0) + 1);
+        });
+      } catch {
+        // Ignore board-level member read errors to avoid breaking workspace load.
+      }
+    })
+  );
+
+  const membersWithBoardCount = members.map((member) => {
+    const userId = extractUserId(member?.userId);
+    return {
+      ...member,
+      boardsCount: userId ? boardCountsByUserId.get(userId) || 0 : 0,
+    };
+  });
+
+  return { boards, members: membersWithBoardCount };
 }
 
 /** Backend không nhúng boards/members trong GET /workspaces — gọi API chi tiết theo workspace. */
@@ -25,48 +72,11 @@ async function attachBoardsAndMembersToWorkspaces(workspacesRaw) {
       }
 
       try {
-        const [boardsRes, membersRes] = await Promise.all([
-          api.get("/api/boards", {
-            params: { workspaceId: String(wid), t: Date.now() },
-          }),
-          api.get(`/api/workspaces/${String(wid)}/members`),
-        ]);
-
-        const boards = Array.isArray(boardsRes.data) ? boardsRes.data : [];
-        const members = Array.isArray(membersRes.data) ? membersRes.data : [];
-
-        const boardCountsByUserId = new Map();
-        await Promise.all(
-          boards.map(async (board) => {
-            const boardId = String(board?._id || board?.id || board?.boardId || "");
-            if (!boardId) return;
-
-            try {
-              const boardMembersRes = await api.get(`/api/boards/${boardId}/members`);
-              const boardMembers = Array.isArray(boardMembersRes.data) ? boardMembersRes.data : [];
-              boardMembers.forEach((item) => {
-                const userId = extractUserId(item?.userId);
-                if (!userId) return;
-                boardCountsByUserId.set(userId, (boardCountsByUserId.get(userId) || 0) + 1);
-              });
-            } catch {
-              // Ignore board-level member read errors to avoid breaking workspace load.
-            }
-          })
-        );
-
-        const membersWithBoardCount = members.map((member) => {
-          const userId = extractUserId(member?.userId);
-          return {
-            ...member,
-            boardsCount: userId ? boardCountsByUserId.get(userId) || 0 : 0,
-          };
-        });
-
+        const { boards, members } = await loadWorkspaceBoardsAndMembers(wid);
         return {
           ...ws,
           boards,
-          members: membersWithBoardCount,
+          members,
         };
       } catch {
         return {
@@ -191,57 +201,118 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
     );
   };
 
-  const inviteMember = async (workspaceId, email) => {
-    if (!workspaceId || !email) return;
-    const normalizedEmail = String(email).trim().toLowerCase();
-    if (!normalizedEmail) return;
+  // Gọi API lấy lại thành viên (và boardsCount) cho đúng workspace — dùng khi socket báo có người khác thay đổi thành viên.
+  const refreshWorkspaceMembers = useCallback(
+    async (workspaceId) => {
+      if (!workspaceId || workspaceId === "default-workspace") return;
+      try {
+        const { boards, members } = await loadWorkspaceBoardsAndMembers(workspaceId);
+        setWorkspaces((prev) =>
+          prev.map((workspace) => {
+            if (workspace.id !== workspaceId) return workspace;
+            const mappedWorkspace = mapWorkspaceToUi(
+              { ...workspace, boards, members },
+              resolvedUser
+            );
+            return mappedWorkspace || workspace;
+          })
+        );
+      } catch (error) {
+        console.error("Failed to refresh workspace members:", error);
+      }
+    },
+    [resolvedUser]
+  );
 
-    try {
-      const usersResponse = await api.get("/api/users");
-      const users = Array.isArray(usersResponse.data) ? usersResponse.data : [];
-      const targetUser = users.find(
-        (user) => String(user?.email || "").toLowerCase() === normalizedEmail
-      );
-
-      if (!targetUser) {
-        window.alert("Không tìm thấy tài khoản với email này.");
-        return;
+  /**
+   * Mời thành viên: email → tra userId (GET /api/users) → POST /api/workspaces/:id/members.
+   * Trả về { ok, message } để UI hiển thị lỗi/thành công; không dùng alert trong hook.
+   */
+  const inviteMember = useCallback(
+    async (workspaceId, email) => {
+      if (!workspaceId || !email) {
+        return { ok: false, message: "Vui lòng nhập email." };
+      }
+      if (workspaceId === "default-workspace") {
+        return { ok: false, message: "Không thể mời thành viên vào workspace mặc định." };
       }
 
-      const targetUserId = String(targetUser?._id || targetUser?.id || "");
-      if (!targetUserId) {
-        window.alert("Không xác định được người dùng để mời.");
-        return;
+      const normalizedEmail = String(email).trim().toLowerCase();
+      if (!normalizedEmail) {
+        return { ok: false, message: "Vui lòng nhập email." };
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        return { ok: false, message: "Email không hợp lệ." };
       }
 
-      await api.post(`/api/workspaces/${workspaceId}/members`, {
-        userId: targetUserId,
-        role: "member",
-      });
+      const workspace = workspaces.find((w) => w.id === workspaceId);
 
-      const membersResponse = await api.get(`/api/workspaces/${workspaceId}/members`);
-      const refreshedMembers = Array.isArray(membersResponse.data)
-        ? membersResponse.data
-        : [];
+      try {
+        const usersResponse = await api.get("/api/users");
+        const users = Array.isArray(usersResponse.data) ? usersResponse.data : [];
+        const targetUser = users.find(
+          (u) => String(u?.email || "").toLowerCase() === normalizedEmail
+        );
 
-      setWorkspaces((prev) =>
-        prev.map((workspace) => {
-          if (workspace.id !== workspaceId) return workspace;
-          const mappedWorkspace = mapWorkspaceToUi(
-            {
-              ...workspace,
-              members: refreshedMembers,
-            },
-            resolvedUser
-          );
-          return mappedWorkspace || workspace;
-        })
-      );
-    } catch (error) {
-      const apiMessage = error?.response?.data?.message || error?.response?.data?.error;
-      window.alert(apiMessage || "Không thể mời thành viên vào workspace.");
-    }
-  };
+        if (!targetUser) {
+          return { ok: false, message: "Không tìm thấy tài khoản với email này." };
+        }
+
+        const targetUserId = String(targetUser?._id || targetUser?.id || "");
+        if (!targetUserId) {
+          return { ok: false, message: "Không xác định được người dùng để mời." };
+        }
+
+        const rawMembers = Array.isArray(workspace?.members) ? workspace.members : [];
+        // Trùng userId với thành viên hiện có → báo sớm, khỏi gọi API.
+        const alreadyMember = rawMembers.some((m) => {
+          const uid = String(m.userId?._id ?? m.userId?.id ?? m.userId ?? "");
+          return uid === targetUserId;
+        });
+        if (alreadyMember) {
+          return { ok: false, message: "Người dùng này đã là thành viên workspace." };
+        }
+
+        await api.post(`/api/workspaces/${workspaceId}/members`, {
+          userId: targetUserId,
+          role: "member",
+        });
+
+        // Sau POST thành công: tải lại members (+ boardsCount) để danh sách khớp backend.
+        const { boards, members } = await loadWorkspaceBoardsAndMembers(workspaceId);
+
+        setWorkspaces((prev) =>
+          prev.map((w) => {
+            if (w.id !== workspaceId) return w;
+            const mappedWorkspace = mapWorkspaceToUi({ ...w, boards, members }, resolvedUser);
+            return mappedWorkspace || w;
+          })
+        );
+
+        return { ok: true, message: "Đã mời thành viên thành công." };
+      } catch (error) {
+        const status = error?.response?.status;
+        const apiMessage = error?.response?.data?.message || error?.response?.data?.error;
+        if (status === 403) {
+          return {
+            ok: false,
+            message: apiMessage || "Bạn không có quyền mời thành viên vào workspace này.",
+          };
+        }
+        if (status === 404) {
+          return {
+            ok: false,
+            message: apiMessage || "Không tìm thấy workspace hoặc người dùng.",
+          };
+        }
+        return {
+          ok: false,
+          message: apiMessage || "Không thể mời thành viên vào workspace. Vui lòng thử lại.",
+        };
+      }
+    },
+    [resolvedUser, workspaces]
+  );
 
   const removeMember = (workspaceId, memberId) => {
     setWorkspaces((prev) =>
@@ -350,6 +421,7 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
     addBoardToWorkspace,
     changeMemberRole,
     inviteMember,
+    refreshWorkspaceMembers,
     leaveWorkspace,
     removeBoardFromWorkspace,
     removeMember,
