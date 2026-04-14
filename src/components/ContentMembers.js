@@ -24,17 +24,6 @@ function avatarBg(index) {
   return AVATAR_BACKGROUNDS[index % AVATAR_BACKGROUNDS.length];
 }
 
-/**
- * @typedef {Object} WorkspaceMember
- * @property {string} id
- * @property {string} [name]
- * @property {string} [initials]
- * @property {string} [handle]
- * @property {string} [role]
- * @property {string} [lastActive]
- * @property {string} [avatarUrl]
- */
-
 function ContentMembers({ workspace, user, onInviteMember, onBack }) {
   // Luôn là mảng — tránh crash khi API/workspace chưa có members
   const members = useMemo(() => {
@@ -51,7 +40,10 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
   const [email, setEmail] = useState("");
   const inviteRef = useRef(null);
   // id duy nhất theo workspace — trùng label htmlFor nếu nhiều form trên trang
-  const emailFieldId = useMemo(() => `invite-email-${workspace?.id || "ws"}`, [workspace?.id]);
+  const emailFieldId = useMemo(
+    () => `invite-email-${workspace?.id || "ws"}`,
+    [workspace?.id],
+  );
 
   // Bấm ra ngoài hộp mời → đóng popover
   useEffect(() => {
@@ -69,7 +61,9 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
     const uid = user?._id || user?.id;
     if (!uid) return false;
     const sid = String(uid);
-    return member.id === `member-${sid}` || String(member.id || "").endsWith(sid);
+    return (
+      member.id === `member-${sid}` || String(member.id || "").endsWith(sid)
+    );
   };
 
   // Lọc theo chuỗi đã debounce — khớp tên hoặc @handle
@@ -126,8 +120,8 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
             Nâng cấp để kiểm soát nhiều quyền hơn
           </h3>
           <p className="mt-1 text-sm leading-relaxed text-[#9fadbc]">
-            Quyết định ai có thể gửi lời mời, chỉnh sửa cài đặt Không gian làm việc và hơn thế
-            nữa với Premium.
+            Quyết định ai có thể gửi lời mời, chỉnh sửa cài đặt Không gian làm
+            việc và hơn thế nữa với Premium.
           </p>
           <button
             type="button"
@@ -141,7 +135,13 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-violet-600 to-indigo-800 shadow-inner"
           aria-hidden
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" className="text-white/95" fill="currentColor">
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            className="text-white/95"
+            fill="currentColor"
+          >
             <rect x="3" y="3" width="8" height="8" rx="1.5" opacity="0.95" />
             <rect x="13" y="3" width="8" height="8" rx="1.5" opacity="0.75" />
             <rect x="3" y="13" width="8" height="8" rx="1.5" opacity="0.75" />
@@ -206,126 +206,121 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
         aria-labelledby="tab-members"
         hidden={activeTab !== "members"}
       >
-          <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <p className="max-w-3xl text-sm leading-relaxed text-[#9fadbc]">
-              Các thành viên trong Không gian làm việc có thể xem và tham gia tất cả các bảng Không
-              gian làm việc hiển thị và tạo ra các bảng mới trong Không gian làm việc.
-            </p>
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setInviteOpen((v) => !v)}
-                aria-expanded={inviteOpen}
-                aria-haspopup="dialog"
-                className="inline-flex items-center gap-2 whitespace-nowrap rounded-[3px] bg-[#579dff] px-4 py-2.5 text-sm font-semibold text-[#1d2125] hover:bg-[#85b8ff]"
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <p className="max-w-3xl text-sm leading-relaxed text-[#9fadbc]">
+            Các thành viên trong Không gian làm việc có thể xem và tham gia tất
+            cả các bảng Không gian làm việc hiển thị và tạo ra các bảng mới
+            trong Không gian làm việc.
+          </p>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setInviteOpen((v) => !v)}
+              aria-expanded={inviteOpen}
+              aria-haspopup="dialog"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-[3px] bg-[#579dff] px-4 py-2.5 text-sm font-semibold text-[#1d2125] hover:bg-[#85b8ff]"
+            >
+              <UserPlus
+                className="h-4 w-4 shrink-0"
+                strokeWidth={2}
+                aria-hidden
+              />
+              Mời các thành viên Không gian làm việc
+            </button>
+            {inviteOpen && (
+              <div
+                ref={inviteRef}
+                role="dialog"
+                aria-label="Mời thành viên"
+                className="absolute right-0 top-full z-20 mt-2 w-[min(100vw-2rem,22rem)] rounded-md border border-[#3c444d] bg-[#282e33] p-4 shadow-xl"
               >
-                <UserPlus className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
-                Mời các thành viên Không gian làm việc
-              </button>
-              {inviteOpen && (
-                <div
-                  ref={inviteRef}
-                  role="dialog"
-                  aria-label="Mời thành viên"
-                  className="absolute right-0 top-full z-20 mt-2 w-[min(100vw-2rem,22rem)] rounded-md border border-[#3c444d] bg-[#282e33] p-4 shadow-xl"
-                >
-                  <div className="mb-3 text-sm font-semibold text-[#dee4ea]">Mời thành viên</div>
-                  <form onSubmit={handleInviteSubmit}>
-                    <label htmlFor={emailFieldId} className="mb-1 block text-xs text-[#9fadbc]">
-                      Email
-                    </label>
-                    <input
-                      id={emailFieldId}
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="email@example.com"
-                      required
-                      autoComplete="email"
-                      className="mb-3 w-full rounded-[3px] border border-[#3c444d] bg-[#1d2125] px-3 py-2 text-sm text-white outline-none focus:border-[#579dff]"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setInviteOpen(false);
-                          setEmail("");
-                        }}
-                        className="rounded-[3px] border border-[#3c444d] px-3 py-1.5 text-sm text-[#9fadbc] hover:bg-[#333c43]"
-                      >
-                        Hủy
-                      </button>
-                      <button
-                        type="submit"
-                        className="rounded-[3px] bg-[#579dff] px-3 py-1.5 text-sm font-semibold text-[#1d2125] hover:bg-[#85b8ff]"
-                      >
-                        Gửi lời mời
-                      </button>
-                    </div>
-                  </form>
+                <div className="mb-3 text-sm font-semibold text-[#dee4ea]">
+                  Mời thành viên
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* sr-only label: screen reader đọc mục đích ô (placeholder không đủ thay label) */}
-          <div className="mb-4">
-            <label htmlFor="members-filter-name" className="sr-only">
-              Lọc theo tên thành viên
-            </label>
-            <input
-              id="members-filter-name"
-              type="search"
-              value={filterInput}
-              onChange={(e) => setFilterInput(e.target.value)}
-              placeholder="Lọc theo tên"
-              autoComplete="off"
-              className="w-full max-w-xl rounded-[3px] border border-[#3c444d] bg-[#22272b] px-3 py-2.5 text-sm text-[#dee4ea] placeholder:text-[#738496] outline-none focus:border-[#579dff]"
-            />
-          </div>
-
-          {/* boardLabel tạm theo index (1–3); sau thay bằng số bảng thật từ API */}
-          {filteredMembers.length > 0 ? (
-            <ul className="divide-y divide-[#3c444d] rounded-md border border-[#3c444d] bg-[#22272b]">
-              {filteredMembers.map((member, index) => {
-                const me = isCurrentMember(member);
-                const boardLabel = `Bảng (${(index % 3) + 1})`;
-                return (
-                  <MemberRow
-                    key={member.id}
-                    member={member}
-                    boardLabel={boardLabel}
-                    isCurrentMember={me}
+                <form onSubmit={handleInviteSubmit}>
+                  <label
+                    htmlFor={emailFieldId}
+                    className="mb-1 block text-xs text-[#9fadbc]"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id={emailFieldId}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="email@example.com"
+                    required
+                    autoComplete="email"
+                    className="mb-3 w-full rounded-[3px] border border-[#3c444d] bg-[#1d2125] px-3 py-2 text-sm text-white outline-none focus:border-[#579dff]"
                   />
-                );
-              })}
-            </ul>
-          ) : (
-            /* Empty: chưa ai hoặc lọc không ra ai */
-            <p className="rounded-md border border-[#3c444d] bg-[#22272b] py-10 text-center text-sm text-[#738496]">
-              {members.length === 0
-                ? "Chưa có thành viên nào trong không gian làm việc này."
-                : "Không có thành viên khớp bộ lọc."}
-            </p>
-          )}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInviteOpen(false);
+                        setEmail("");
+                      }}
+                      className="rounded-[3px] border border-[#3c444d] px-3 py-1.5 text-sm text-[#9fadbc] hover:bg-[#333c43]"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      className="rounded-[3px] bg-[#579dff] px-3 py-1.5 text-sm font-semibold text-[#1d2125] hover:bg-[#85b8ff]"
+                    >
+                      Gửi lời mời
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* sr-only label: screen reader đọc mục đích ô (placeholder không đủ thay label) */}
+        <div className="mb-4">
+          <label htmlFor="members-filter-name" className="sr-only">
+            Lọc theo tên thành viên
+          </label>
+          <input
+            id="members-filter-name"
+            type="search"
+            value={filterInput}
+            onChange={(e) => setFilterInput(e.target.value)}
+            placeholder="Lọc theo tên"
+            autoComplete="off"
+            className="w-full max-w-xl rounded-[3px] border border-[#3c444d] bg-[#22272b] px-3 py-2.5 text-sm text-[#dee4ea] placeholder:text-[#738496] outline-none focus:border-[#579dff]"
+          />
+        </div>
+
+        {/* boardLabel tạm theo index (1–3); sau thay bằng số bảng thật từ API */}
+        {filteredMembers.length > 0 ? (
+          <ul className="divide-y divide-[#3c444d] rounded-md border border-[#3c444d] bg-[#22272b]">
+            {filteredMembers.map((member, index) => {
+              const me = isCurrentMember(member);
+              const boardLabel = `Bảng (${(index % 3) + 1})`;
+              return (
+                <MemberRow
+                  key={member.id}
+                  member={member}
+                  boardLabel={boardLabel}
+                  isCurrentMember={me}
+                />
+              );
+            })}
+          </ul>
+        ) : (
+          /* Empty: chưa ai hoặc lọc không ra ai */
+          <p className="rounded-md border border-[#3c444d] bg-[#22272b] py-10 text-center text-sm text-[#738496]">
+            {members.length === 0
+              ? "Chưa có thành viên nào trong không gian làm việc này."
+              : "Không có thành viên khớp bộ lọc."}
+          </p>
+        )}
       </div>
     </section>
   );
 }
-
-// Kiểm tra props lúc dev (console warning nếu sai kiểu / thiếu field quan trọng)
-ContentMembers.propTypes = {
-  workspace: PropTypes.oneOfType([PropTypes.oneOf([null]), workspacePropType, PropTypes.object]),
-  user: PropTypes.object,
-  onInviteMember: PropTypes.func,
-  onBack: PropTypes.func,
-};
-
-ContentMembers.defaultProps = {
-  workspace: null,
-  user: null,
-  onInviteMember: undefined,
-  onBack: undefined,
-};
 
 export default ContentMembers;

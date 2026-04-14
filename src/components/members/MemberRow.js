@@ -3,7 +3,6 @@ import PropTypes from "prop-types";
 import { ChevronDown, LogOut, XCircle } from "lucide-react";
 import MemberAvatar from "./MemberAvatar";
 import BadgeRole from "./BadgeRole";
-import { workspaceMemberPropType } from "./memberPropTypes";
 
 const boardBtnClass =
   "inline-flex items-center gap-1 rounded-[3px] border border-[#3c444d] bg-[#3a3f44] px-2.5 py-1.5 text-xs text-[#dee4ea] hover:bg-[#454b51]";
@@ -48,7 +47,11 @@ function MemberRowComponent({ member, boardLabel, isCurrentMember }) {
           ariaLabel={`Vai trò thành viên ${member.name || ""}: ${member.role || "Quản trị viên"}`}
         />
         {isCurrentMember ? (
-          <button type="button" className={actionBtnClass} aria-label="Rời khỏi không gian làm việc">
+          <button
+            type="button"
+            className={actionBtnClass}
+            aria-label="Rời khỏi không gian làm việc"
+          >
             <LogOut className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             Rời đi
           </button>
@@ -67,16 +70,6 @@ function MemberRowComponent({ member, boardLabel, isCurrentMember }) {
   );
 }
 
-MemberRowComponent.propTypes = {
-  member: workspaceMemberPropType.isRequired,
-  boardLabel: PropTypes.string.isRequired,
-  isCurrentMember: PropTypes.bool.isRequired,
-};
-
-/**
- * memo + hàm so sánh tùy chỉnh: chỉ render lại hàng này khi member / nhãn / cờ "là tôi" thật sự đổi.
- * Giúp khi cha (ContentMembers) re-render vì gõ ô search, các hàng không đổi vẫn bỏ qua render.
- */
 const MemberRow = memo(MemberRowComponent, (prev, next) => {
   return (
     prev.member === next.member &&
