@@ -44,6 +44,14 @@ function mapMemberToUi(member, currentUser) {
         : null;
 
   const resolvedRole = String(member.role || "").toLowerCase();
+  const roleKey =
+    resolvedRole === "admin"
+      ? "admin"
+      : resolvedRole === "guest"
+        ? "guest"
+        : resolvedRole === "observer"
+          ? "observer"
+          : "member";
   const uiRole =
     resolvedRole === "admin"
       ? "Quản trị viên"
@@ -61,6 +69,7 @@ function mapMemberToUi(member, currentUser) {
     handle: member.handle || `@${username}`,
     initials: member.initials || getInitials(name),
     avatarUrl: member.avatarUrl || nestedUser?.avatarUrl || "",
+    roleKey,
     role: uiRole,
     lastActive: member.lastActive || "Mới tham gia",
     boardsCount: resolvedBoardsCount,
@@ -82,6 +91,7 @@ function buildDefaultMembers(currentUser) {
       initials: currentUser.initials || getInitials(currentUser.name || currentUser.fullName || ""),
       handle: `@${username}`,
       avatarUrl: currentUser.avatarUrl || "",
+      roleKey: "admin",
       role: currentUser.role || "Quản trị viên",
       lastActive: "Mới tham gia",
       boardsCount: 1,

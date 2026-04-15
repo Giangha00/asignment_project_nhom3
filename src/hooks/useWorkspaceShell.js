@@ -314,24 +314,141 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
     [resolvedUser, workspaces]
   );
 
-  const removeMember = (workspaceId, memberId) => {
-    setWorkspaces((prev) =>
-      prev.map((workspace) => {
-        if (workspace.id !== workspaceId) return workspace;
-        const nextMembers = (Array.isArray(workspace.members) ? workspace.members : []).filter(
-          (member) => member.id !== memberId
+  /**
+   * Loại thành viên (DELETE /api/workspaces/:wid/members/:id).
+   * Backend: quản trị viên loại người khác; mọi người có thể tự xóa bản ghi của mình (rời workspace).
+   */
+  const removeMember = useCallback(
+    async (workspaceId, memberId) => {
+      if (!workspaceId || !memberId) {
+        return { ok: false, message: "Thiếu thông tin workspace hoặc thành viên." };
+      }
+      if (workspaceId === "default-workspace") {
+        setWorkspaces((prev) =>
+          prev.map((workspace) => {
+            if (workspace.id !== workspaceId) return workspace;
+            const nextMembers = (Array.isArray(workspace.members) ? workspace.members : []).filter(
+              (m) => String(m.id) !== String(memberId)
+            );
+            return { ...workspace, members: nextMembers };
+          })
+        );
+        return { ok: true, message: "Đã cập nhật danh sách." };
+      }
+      try {
+        await api.delete(`/api/workspaces/${workspaceId}/members/${memberId}`);
+        await refreshWorkspaceMembers(workspaceId);
+        return { ok: true, message: "Đã loại thành viên." };
+      } catch (error) {
+        const status = error?.response?.status;
+        const apiMessage = error?.response?.data?.message || error?.response?.data?.error;
+        if (status === 403) {
+          return {
+            ok: false,
+            message: apiMessage || "Bạn không có quyền loại thành viên này.",
+          };
+        }
+        if (status === 404) {
+          return { ok: false, message: apiMessage || "Không tìm thấy thành viên." };
+        }
+        return {
+          ok: false,
+          message: apiMessage || "Không thể loại thành viên. Vui lòng thử lại.",
+        };
+      }
+    },
+    [refreshWorkspaceMembers]
+  );
+
+  /**
+   * Rời workspace: chỉ khi bản ghi membership là của chính user (kiểm tra userId / isCurrentUser).
+   * Gỡ user khỏi mọi bảng trong workspace (DELETE board members), rồi DELETE workspace member.
+   * Trả về nextWorkspaceId để điều hướng sau khi xóa workspace khỏi state.
+   */
+  const leaveWorkspace = useCallback(
+    async (workspaceId, memberPayload) => {
+      const myId = String(resolvedUser?._id || resolvedUser?.id || "");
+      if (!myId) return { ok: false, message: "Chưa đăng nhập." };
+      if (!workspaceId || !memberPayload) {
+        return { ok: false, message: "Thiếu thông tin." };
+      }
+      const memberId = String(memberPayload.id || "");
+      if (!memberId) return { ok: false, message: "Không xác định được bản ghi thành viên." };
+
+      const isSelf =
+        Boolean(memberPayload.isCurrentUser) ||
+        extractUserId(memberPayload.userId) === myId ||
+        memberPayload.id === `member-${myId}`;
+
+      if (!isSelf) {
+        return { ok: false, message: "Chỉ có thể rời bằng chính tài khoản của bạn." };
+      }
+
+      if (workspaceId === "default-workspace") {
+        setWorkspaces((prev) =>
+          prev.map((w) => {
+            if (w.id !== workspaceId) return w;
+            const nextMembers = (Array.isArray(w.members) ? w.members : []).filter(
+              (m) => String(m.id) !== memberId
+            );
+            return { ...w, members: nextMembers };
+          })
         );
         return {
-          ...workspace,
-          members: nextMembers,
+          ok: true,
+          message: "Đã rời (workspace mặc định).",
+          nextWorkspaceId: activeWorkspaceId,
         };
-      })
-    );
-  };
+      }
 
-  const leaveWorkspace = (workspaceId, memberId) => {
-    removeMember(workspaceId, memberId);
-  };
+      try {
+        const boardsRes = await api.get("/api/boards", {
+          params: { workspaceId: String(workspaceId), t: Date.now() },
+        });
+        const boards = Array.isArray(boardsRes.data) ? boardsRes.data : [];
+
+        for (const board of boards) {
+          const boardId = String(board?._id || board?.id || board?.boardId || "");
+          if (!boardId) continue;
+          try {
+            const membersRes = await api.get(`/api/boards/${boardId}/members`);
+            const rows = Array.isArray(membersRes.data) ? membersRes.data : [];
+            const mine = rows.find((r) => extractUserId(r?.userId) === myId);
+            const bmId = mine?._id || mine?.id;
+            if (bmId) {
+              await api.delete(`/api/boards/${boardId}/members/${String(bmId)}`);
+            }
+          } catch {
+            // bỏ qua lỗi từng bảng
+          }
+        }
+
+        await api.delete(`/api/workspaces/${workspaceId}/members/${memberId}`);
+
+        const nextWorkspaceId = removeWorkspace(workspaceId);
+
+        return {
+          ok: true,
+          message: "Đã rời không gian làm việc và các bảng liên quan.",
+          nextWorkspaceId,
+        };
+      } catch (error) {
+        const status = error?.response?.status;
+        const apiMessage = error?.response?.data?.message || error?.response?.data?.error;
+        if (status === 403) {
+          return { ok: false, message: apiMessage || "Bạn không có quyền thực hiện thao tác này." };
+        }
+        if (status === 404) {
+          return { ok: false, message: apiMessage || "Không tìm thấy dữ liệu." };
+        }
+        return {
+          ok: false,
+          message: apiMessage || "Không thể rời không gian làm việc. Vui lòng thử lại.",
+        };
+      }
+    },
+    [resolvedUser, activeWorkspaceId, removeWorkspace]
+  );
 
   const changeMemberRole = (workspaceId, memberId) => {
     setWorkspaces((prev) =>

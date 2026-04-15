@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
 import { useWorkspaceShell } from "./useWorkspaceShell";
@@ -15,6 +15,8 @@ export function useHome(currentUser) {
     activeWorkspaceId,
     addBoardToWorkspace,
     inviteMember,
+    leaveWorkspace,
+    removeMember,
     refreshWorkspaceMembers,
     removeBoardFromWorkspace,
     removeWorkspace,
@@ -181,6 +183,23 @@ export function useHome(currentUser) {
     }
     setActiveSection(section || "home");
   };
+
+  /** Rời workspace (chỉ chính user): sau khi thành công chuyển URL sang workspace còn lại hoặc /home. */
+  const handleLeaveWorkspace = useCallback(
+    async (workspaceId, member) => {
+      const result = await leaveWorkspace(workspaceId, member);
+      if (result?.ok === false) return result;
+      if (!workspaceId || workspaceId === "default-workspace") return result;
+      const next = result?.nextWorkspaceId;
+      if (next) {
+        navigate(`/workspace/${encodeURIComponent(next)}/home`, { replace: true });
+      } else {
+        navigate("/home", { replace: true });
+      }
+      return result;
+    },
+    [leaveWorkspace, navigate]
+  );
 
   const handleWorkspaceCreated = (workspaceInput) => {
     upsertWorkspace({
@@ -388,6 +407,8 @@ export function useHome(currentUser) {
     resolvedUser,
     workspaces,
     inviteMember,
+    handleLeaveWorkspace,
+    removeMember,
     removeWorkspace,
     toggleWorkspace,
     handleSelectSection,
