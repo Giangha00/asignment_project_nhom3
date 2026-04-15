@@ -68,4 +68,13 @@ async function removeMember(app, actorUserId, workspaceId, memberId) {
   emitToWorkspace(app, workspaceId, "workspaceMember:removed", { id: row._id });
 }
 
-module.exports = { listMembers, addMember, updateMember, removeMember };
+async function backfillMissingLastActive() {
+  const now = new Date();
+  const result = await WorkspaceMember.updateMany(
+    { $or: [{ lastActive: { $exists: false } }, { lastActive: null }] },
+    { $set: { lastActive: now } }
+  );
+  return result.modifiedCount || 0;
+}
+
+module.exports = { listMembers, addMember, updateMember, removeMember, backfillMissingLastActive };

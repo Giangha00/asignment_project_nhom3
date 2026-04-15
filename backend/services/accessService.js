@@ -7,12 +7,26 @@ const Card = require("../models/cardModel");
 
 async function isWorkspaceMember(workspaceId, userId) {
   if (!mongoose.Types.ObjectId.isValid(workspaceId)) return false;
-  const m = await WorkspaceMember.findOne({
+  const baseQuery = {
     workspaceId,
     userId,
     status: "active",
     deletedAt: null,
-  }).lean();
+  };
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - 60_000);
+
+  const touched = await WorkspaceMember.findOneAndUpdate(
+    {
+      ...baseQuery,
+      $or: [{ lastActive: { $exists: false } }, { lastActive: null }, { lastActive: { $lt: cutoff } }],
+    },
+    { $set: { lastActive: now } },
+    { new: false, projection: { _id: 1 } }
+  ).lean();
+  if (touched) return true;
+
+  const m = await WorkspaceMember.findOne(baseQuery).select("_id").lean();
   return Boolean(m);
 }
 

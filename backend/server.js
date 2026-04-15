@@ -11,12 +11,17 @@ const { Server } = require("socket.io");
 const { connectMongo } = require("./config/db");
 const { createApp } = require("./app");
 const { registerSocket } = require("./socket");
+const { backfillMissingLastActive } = require("./services/workspaceMemberService");
 
 /** Mặc định 4000 để tránh trùng PORT=3000 của react-scripts khi chạy `npm run dev`. */
 const PORT = Number(process.env.API_PORT) || 4000;
 
 async function main() {
   await connectMongo();
+  const patchedMembers = await backfillMissingLastActive();
+  if (patchedMembers > 0) {
+    console.log(`[WorkspaceMember] backfilled lastActive for ${patchedMembers} record(s).`);
+  }
 
   const app = createApp();
   const server = http.createServer(app);
