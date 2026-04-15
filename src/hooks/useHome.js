@@ -15,6 +15,7 @@ export function useHome(currentUser) {
     activeWorkspaceId,
     addBoardToWorkspace,
     inviteMember,
+    refreshWorkspaceMembers,
     removeBoardFromWorkspace,
     removeWorkspace,
     resolvedUser,
@@ -62,6 +63,7 @@ export function useHome(currentUser) {
     }
   }, [workspaceIdParam, setActiveWorkspaceId]);
 
+  // Socket: vào phòng từng workspace để nhận sự kiện realtime (bảng + thành viên).
   useEffect(() => {
     const socket = getSocket();
     const workspaceIds = workspaces
@@ -118,20 +120,56 @@ export function useHome(currentUser) {
       removeBoardFromWorkspace(workspaceId, boardId);
     };
 
+    // Backend emit khi thêm/cập nhật membership — payload có workspaceId → gọi API làm mới danh sách.
+    const handleWorkspaceMemberUpserted = (payload) => {
+      const wid = String(payload?.workspaceId || "");
+      if (!wid || wid === "default-workspace") return;
+      refreshWorkspaceMembers(wid);
+    };
+
+    const handleWorkspaceMemberUpdated = (payload) => {
+      const wid = String(payload?.workspaceId || "");
+      if (!wid || wid === "default-workspace") return;
+      refreshWorkspaceMembers(wid);
+    };
+
+    // Payload removed chỉ có id bản ghi membership — tìm workspace đang chứa member đó rồi refresh.
+    const handleWorkspaceMemberRemoved = (payload) => {
+      const memberId = String(payload?.id || payload?._id || "");
+      if (!memberId) return;
+      const ws = workspaces.find((w) =>
+        (Array.isArray(w?.members) ? w.members : []).some(
+          (m) =>
+            String(m.id) === memberId ||
+            String(m._id) === memberId ||
+            String(m.memberId) === memberId,
+        ),
+      );
+      if (!ws?.id || ws.id === "default-workspace") return;
+      refreshWorkspaceMembers(ws.id);
+    };
+
     socket.on("board:created", handleBoardCreated);
     socket.on("board:updated", handleBoardUpdated);
     socket.on("board:deleted", handleBoardDeleted);
+    socket.on("workspaceMember:upserted", handleWorkspaceMemberUpserted);
+    socket.on("workspaceMember:updated", handleWorkspaceMemberUpdated);
+    socket.on("workspaceMember:removed", handleWorkspaceMemberRemoved);
 
     return () => {
       socket.off("board:created", handleBoardCreated);
       socket.off("board:updated", handleBoardUpdated);
       socket.off("board:deleted", handleBoardDeleted);
+      socket.off("workspaceMember:upserted", handleWorkspaceMemberUpserted);
+      socket.off("workspaceMember:updated", handleWorkspaceMemberUpdated);
+      socket.off("workspaceMember:removed", handleWorkspaceMemberRemoved);
       workspaceIds.forEach((workspaceId) => {
         socket.emit("leave:workspace", workspaceId);
       });
     };
   }, [
     addBoardToWorkspace,
+    refreshWorkspaceMembers,
     removeBoardFromWorkspace,
     updateBoardInWorkspace,
     workspaces,

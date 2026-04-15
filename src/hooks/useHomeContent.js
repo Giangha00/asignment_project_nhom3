@@ -42,13 +42,19 @@ export function useHomeContent({ workspaces = [], onCreateWorkspace, onCreateBoa
     setBoardByWorkspace((prev) => ({ ...prev, [workspaceId]: "" }));
   };
 
+  // Mời nhanh từ trang chủ (không có UI loading riêng): lỗi báo bằng alert, thành công thì xóa ô email.
   const handleInviteSubmit = (event, workspaceId) => {
     event.preventDefault();
     const email = (inviteByWorkspace[workspaceId] || "").trim();
     if (!email) return;
 
-    onInviteMember(workspaceId, email);
-    setInviteByWorkspace((prev) => ({ ...prev, [workspaceId]: "" }));
+    Promise.resolve(onInviteMember(workspaceId, email)).then((result) => {
+      if (result?.ok === false && result.message) {
+        window.alert(result.message);
+        return;
+      }
+      setInviteByWorkspace((prev) => ({ ...prev, [workspaceId]: "" }));
+    });
   };
 
   return {
