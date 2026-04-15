@@ -144,6 +144,8 @@ function BoardDetail({ currentUser, onLogout }) {
       {/* Invite member modal */}
       {inviteOpen && (
         <InviteMemberModal
+          boardName={boardName}
+          currentUserId={currentUser?._id || currentUser?.id}
           boardMembers={boardMembers}
           inviteEmail={inviteEmail}
           setInviteEmail={setInviteEmail}
