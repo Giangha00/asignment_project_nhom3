@@ -21,8 +21,10 @@ function MemberRowComponent({
 }) {
   const showRemoveOthers = Boolean(canRemoveOthers) && !isCurrentMember && typeof onRemoveMember === "function";
 
+  const loginLabel = member.lastLoginMonthYear || "—";
+
   return (
-    <li className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:gap-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <MemberAvatar
           name={member.name}
@@ -35,10 +37,13 @@ function MemberRowComponent({
           <span className="font-semibold text-[#dee4ea]">{member.name}</span>
         </div>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-        <span className="text-xs text-[#738496] sm:min-w-[10rem] sm:text-right">
-          Lần hoạt động gần nhất {member.lastActive || "—"}
+      <div className="flex flex-1 justify-center px-2 text-center md:min-w-[12rem]">
+        <span className="text-xs leading-snug text-[#738496]">
+          Hoạt động gần đây :{" "}
+          <span className="whitespace-nowrap text-[#9fadbc]">{loginLabel}</span>
         </span>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2 md:shrink-0">
         <BadgeRole
           label={member.role || "Quản trị viên"}
           ariaLabel={`Vai trò thành viên ${member.name || ""}: ${member.role || "Quản trị viên"}`}
