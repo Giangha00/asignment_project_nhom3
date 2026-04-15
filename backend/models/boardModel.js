@@ -10,6 +10,7 @@ const boardSchema = new mongoose.Schema(
     coverUrl: { type: String, default: "" },
     isStarred: { type: Boolean, default: false },
     archivedAt: { type: Date },
+    deletedAt: { type: Date, default: null, index: true },
   },
   { timestamps: true }
 );

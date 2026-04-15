@@ -6,7 +6,7 @@ const { assertObjectId } = require("./validation");
 const { getBoardWithAccess } = require("./accessService");
 
 async function cardAccess(userId, cardId) {
-  const card = await Card.findById(cardId);
+  const card = await Card.findOne({ _id: cardId, deletedAt: null });
   if (!card) throw new HttpError(404, "Not found");
   const board = await getBoardWithAccess(card.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
@@ -17,7 +17,7 @@ async function listAttachments(userId, cardId) {
   if (!cardId) throw new HttpError(400, "cardId query required");
   assertObjectId(cardId);
   await cardAccess(userId, cardId);
-  return Attachment.find({ cardId }).sort({ createdAt: -1 }).lean();
+  return Attachment.find({ cardId, deletedAt: null }).sort({ createdAt: -1 }).lean();
 }
 
 async function createAttachment(app, userId, body) {
@@ -40,17 +40,18 @@ async function createAttachment(app, userId, body) {
 
 async function getAttachment(userId, id) {
   assertObjectId(id);
-  const att = await Attachment.findById(id);
+  const att = await Attachment.findOne({ _id: id, deletedAt: null });
   if (!att) throw new HttpError(404, "Not found");
   await cardAccess(userId, att.cardId);
   return att;
 }
 
 async function deleteAttachment(app, userId, id) {
-  const att = await Attachment.findById(id);
+  const att = await Attachment.findOne({ _id: id, deletedAt: null });
   if (!att) throw new HttpError(404, "Not found");
   const card = await cardAccess(userId, att.cardId);
-  await Attachment.deleteOne({ _id: id });
+  att.deletedAt = new Date();
+  await att.save();
   emitToBoard(app, String(card.boardId), "attachment:deleted", { id });
 }
 

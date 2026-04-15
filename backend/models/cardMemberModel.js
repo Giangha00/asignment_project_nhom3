@@ -6,10 +6,14 @@ const cardMemberSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     assignedAt: { type: Date, default: Date.now },
+    deletedAt: { type: Date, default: null, index: true },
   },
   { timestamps: false }
 );
 
-cardMemberSchema.index({ cardId: 1, userId: 1 }, { unique: true });
+cardMemberSchema.index(
+  { cardId: 1, userId: 1 },
+  { unique: true, partialFilterExpression: { deletedAt: null } }
+);
 
 module.exports = mongoose.model("CardMember", cardMemberSchema);

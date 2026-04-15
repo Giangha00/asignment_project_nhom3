@@ -27,6 +27,10 @@ Runs a one-time backfill to set `lastActive` on legacy `WorkspaceMember` records
 
 Runs backend unit tests using Node's built-in test runner.
 
+### `npm run migrate:soft-delete-deleted-at`
+
+Runs a one-time backfill to set explicit `deletedAt: null` for legacy records in soft-delete entities.
+
 ## Workspace Member `lastActive`
 
 - `WorkspaceMember` now includes `lastActive` as a `Date` field.
@@ -35,3 +39,16 @@ Runs backend unit tests using Node's built-in test runner.
 - Validation rejects future timestamps for `lastActive`.
 - Active members are indexed by `{ workspaceId, lastActive }` to support sorting by recent activity.
 - `GET /api/workspaces/:workspaceId/members` returns `lastActive` in each member payload.
+
+## Soft Delete Guideline
+
+- Scope implemented: `workspace`, `board`, `board_list`, `card`, `comment`, `checklist`, `checklist_item`, `attachment`, `board_member`, `card_member`, `workspace_member`.
+- All delete APIs in this scope now mark records by setting `deletedAt = new Date()` (no physical delete).
+- Read APIs (`list/get`) in this scope now filter with `deletedAt: null` by default.
+- Access checks for board/list/card paths also ignore soft-deleted parent records.
+- Existing API contract is preserved (status code and response shape unchanged).
+
+### When to Soft Delete vs Hard Delete
+
+- Use **soft delete** for business entities and relationships required for audit, restore, and incident recovery.
+- Use **hard delete** only for technical/ephemeral data (for example OTP/session cleanup) that is explicitly approved to be non-recoverable.

@@ -6,7 +6,7 @@ const { assertObjectId } = require("./validation");
 const { getBoardWithAccess } = require("./accessService");
 
 async function getCardForComment(userId, cardId) {
-  const card = await Card.findById(cardId);
+  const card = await Card.findOne({ _id: cardId, deletedAt: null });
   if (!card) throw new HttpError(404, "Not found");
   const board = await getBoardWithAccess(card.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
@@ -40,7 +40,8 @@ async function getComment(userId, id) {
 async function updateComment(app, userId, id, body) {
   const comment = await getComment(userId, id);
   if (String(comment.userId) !== String(userId)) throw new HttpError(403, "Forbidden");
-  const card = await Card.findById(comment.cardId);
+  const card = await Card.findOne({ _id: comment.cardId, deletedAt: null });
+  if (!card) throw new HttpError(404, "Not found");
   if (body.content !== undefined) comment.content = body.content;
   await comment.save();
   emitToBoard(app, String(card.boardId), "comment:updated", comment.toJSON());
@@ -50,7 +51,8 @@ async function updateComment(app, userId, id, body) {
 async function deleteComment(app, userId, id) {
   const comment = await Comment.findById(id);
   if (!comment || comment.deletedAt) throw new HttpError(404, "Not found");
-  const card = await Card.findById(comment.cardId);
+  const card = await Card.findOne({ _id: comment.cardId, deletedAt: null });
+  if (!card) throw new HttpError(404, "Not found");
   const board = await getBoardWithAccess(card.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
   comment.deletedAt = new Date();

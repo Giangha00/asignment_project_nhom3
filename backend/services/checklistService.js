@@ -6,7 +6,7 @@ const { assertObjectId } = require("./validation");
 const { getBoardWithAccess } = require("./accessService");
 
 async function cardWithAccess(userId, cardId) {
-  const card = await Card.findById(cardId);
+  const card = await Card.findOne({ _id: cardId, deletedAt: null });
   if (!card) throw new HttpError(404, "Not found");
   const board = await getBoardWithAccess(card.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
@@ -44,7 +44,8 @@ async function getChecklist(userId, id) {
 
 async function updateChecklist(app, userId, id, body) {
   const cl = await getChecklist(userId, id);
-  const card = await Card.findById(cl.cardId);
+  const card = await Card.findOne({ _id: cl.cardId, deletedAt: null });
+  if (!card) throw new HttpError(404, "Not found");
   const { title, position } = body || {};
   if (title !== undefined) cl.title = title;
   if (position !== undefined) cl.position = position;
@@ -55,7 +56,8 @@ async function updateChecklist(app, userId, id, body) {
 
 async function deleteChecklist(app, userId, id) {
   const cl = await getChecklist(userId, id);
-  const card = await Card.findById(cl.cardId);
+  const card = await Card.findOne({ _id: cl.cardId, deletedAt: null });
+  if (!card) throw new HttpError(404, "Not found");
   cl.deletedAt = new Date();
   await cl.save();
   emitToBoard(app, String(card.boardId), "checklist:deleted", { id: cl._id });

@@ -7,6 +7,7 @@ const checklistItemSchema = new mongoose.Schema(
     position: { type: Number, default: 0 },
     isCompleted: { type: Boolean, default: false },
     completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    deletedAt: { type: Date, default: null, index: true },
   },
   { timestamps: true }
 );
