@@ -34,10 +34,8 @@
     "dev": "node backend/server.js",
     "dev:web": "react-scripts start",
     "dev:all": "concurrently -n api,web -c blue,green \"npm run server\" \"react-scripts start\"",
-    "migrate:workspace-last-active": "node backend/scripts/backfillWorkspaceMemberLastActive.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "test:backend": "node --test backend/tests/**/*.test.js",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
