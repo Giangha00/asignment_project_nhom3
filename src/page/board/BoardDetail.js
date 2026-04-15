@@ -93,10 +93,11 @@ function BoardDetail({ currentUser, onLogout }) {
       <div className="relative z-10 flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           
-          <BoardHeader 
-            boardName={boardName} 
-            workspaceName={workspaceName} 
-            onInviteClick={() => setInviteOpen(true)} 
+          <BoardHeader
+            boardName={boardName}
+            workspaceName={workspaceName}
+            onInviteClick={() => setInviteOpen(true)}
+            boardMembers={boardMembers}
           />
 
           {bannerVisible && <BoardBanner onHeaderClose={() => setBannerVisible(false)} />}
