@@ -9,7 +9,7 @@ const { getBoardWithAccess } = require("./accessService");
 async function listCardLabels(userId, cardId) {
   if (!cardId) throw new HttpError(400, "cardId query required");
   assertObjectId(cardId, "Invalid cardId");
-  const card = await Card.findById(cardId);
+  const card = await Card.findOne({ _id: cardId, deletedAt: null });
   if (!card) throw new HttpError(404, "Not found");
   const board = await getBoardWithAccess(card.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
@@ -21,7 +21,7 @@ async function assignLabel(app, userId, body) {
   if (!cardId || !labelId) throw new HttpError(400, "cardId and labelId required");
   assertObjectId(cardId);
   assertObjectId(labelId);
-  const card = await Card.findById(cardId);
+  const card = await Card.findOne({ _id: cardId, deletedAt: null });
   if (!card) throw new HttpError(404, "Card not found");
   const board = await getBoardWithAccess(card.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
@@ -37,7 +37,7 @@ async function removeCardLabel(app, userId, id) {
   assertObjectId(id);
   const row = await CardLabel.findById(id);
   if (!row) throw new HttpError(404, "Not found");
-  const card = await Card.findById(row.cardId);
+  const card = await Card.findOne({ _id: row.cardId, deletedAt: null });
   if (!card) throw new HttpError(404, "Not found");
   const board = await getBoardWithAccess(card.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");

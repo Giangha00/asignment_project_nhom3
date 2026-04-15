@@ -8,7 +8,7 @@ const { getBoardWithAccess } = require("./accessService");
 
 async function getCardAndBoard(userId, cardId) {
   assertObjectId(cardId);
-  const card = await Card.findById(cardId);
+  const card = await Card.findOne({ _id: cardId, deletedAt: null });
   if (!card) throw new HttpError(404, "Not found");
   const board = await getBoardWithAccess(card.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
@@ -17,7 +17,7 @@ async function getCardAndBoard(userId, cardId) {
 
 async function listAssignees(userId, cardId) {
   await getCardAndBoard(userId, cardId);
-  return CardMember.find({ cardId }).populate("userId").lean();
+  return CardMember.find({ cardId, deletedAt: null }).populate("userId").lean();
 }
 
 async function addAssignee(app, actorUserId, cardId, body) {
@@ -28,8 +28,8 @@ async function addAssignee(app, actorUserId, cardId, body) {
   const target = await User.findById(targetUserId);
   if (!target || target.deletedAt) throw new HttpError(404, "User not found");
   const row = await CardMember.findOneAndUpdate(
-    { cardId, userId: targetUserId },
-    { $set: { assignedBy: actorUserId, assignedAt: new Date() } },
+    { cardId, userId: targetUserId, deletedAt: null },
+    { $set: { assignedBy: actorUserId, assignedAt: new Date(), deletedAt: null } },
     { upsert: true, new: true }
   );
   emitToBoard(app, String(card.boardId), "cardMember:upserted", row.toJSON());
@@ -40,8 +40,10 @@ async function removeAssignee(app, actorUserId, cardId, memberId) {
   assertObjectId(cardId, "Invalid id");
   assertObjectId(memberId, "Invalid id");
   const { card } = await getCardAndBoard(actorUserId, cardId);
-  const row = await CardMember.findOneAndDelete({ _id: memberId, cardId });
+  const row = await CardMember.findOne({ _id: memberId, cardId, deletedAt: null });
   if (!row) throw new HttpError(404, "Not found");
+  row.deletedAt = new Date();
+  await row.save();
   emitToBoard(app, String(card.boardId), "cardMember:removed", { id: row._id });
 }
 

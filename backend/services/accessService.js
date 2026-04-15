@@ -32,13 +32,13 @@ async function isWorkspaceMember(workspaceId, userId) {
 
 async function isBoardMember(boardId, userId) {
   if (!mongoose.Types.ObjectId.isValid(boardId)) return false;
-  const m = await BoardMember.findOne({ boardId, userId }).lean();
+  const m = await BoardMember.findOne({ boardId, userId, deletedAt: null }).lean();
   return Boolean(m);
 }
 
 async function getBoardWithAccess(boardId, userId) {
   if (!mongoose.Types.ObjectId.isValid(boardId)) return null;
-  const board = await Board.findById(boardId).lean();
+  const board = await Board.findOne({ _id: boardId, deletedAt: null }).lean();
   if (!board) return null;
   const wsOk = await isWorkspaceMember(board.workspaceId, userId);
   const bmOk = await isBoardMember(boardId, userId);
@@ -48,13 +48,13 @@ async function getBoardWithAccess(boardId, userId) {
 
 async function getListBoardId(listId) {
   if (!mongoose.Types.ObjectId.isValid(listId)) return null;
-  const list = await BoardList.findById(listId).lean();
+  const list = await BoardList.findOne({ _id: listId, deletedAt: null }).lean();
   return list ? list.boardId : null;
 }
 
 async function getCardBoardId(cardId) {
   if (!mongoose.Types.ObjectId.isValid(cardId)) return null;
-  const card = await Card.findById(cardId).lean();
+  const card = await Card.findOne({ _id: cardId, deletedAt: null }).lean();
   return card ? card.boardId : null;
 }
 

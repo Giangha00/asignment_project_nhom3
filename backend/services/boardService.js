@@ -10,7 +10,7 @@ async function listByWorkspace(userId, workspaceId) {
   assertObjectId(workspaceId, "workspaceId query required");
   const ok = await isWorkspaceMember(workspaceId, userId);
   if (!ok) throw new HttpError(403, "Forbidden");
-  return Board.find({ workspaceId, archivedAt: null }).sort({ createdAt: -1 }).lean();
+  return Board.find({ workspaceId, archivedAt: null, deletedAt: null }).sort({ createdAt: -1 }).lean();
 }
 
 async function createBoard(app, userId, body) {
@@ -43,10 +43,10 @@ async function createBoard(app, userId, body) {
 
 async function getBoard(userId, id) {
   assertObjectId(id);
-  const board = await Board.findById(id);
+  const board = await Board.findOne({ _id: id, deletedAt: null });
   if (!board) throw new HttpError(404, "Not found");
   const wsOk = await isWorkspaceMember(board.workspaceId, userId);
-  const bm = await BoardMember.findOne({ boardId: id, userId });
+  const bm = await BoardMember.findOne({ boardId: id, userId, deletedAt: null });
   if (!wsOk && !bm) throw new HttpError(403, "Forbidden");
   return board;
 }
@@ -77,7 +77,7 @@ async function updateBoard(app, userId, id, body) {
 
 async function getBoardForWorkspaceAdmin(userId, id) {
   assertObjectId(id);
-  const board = await Board.findById(id);
+  const board = await Board.findOne({ _id: id, deletedAt: null });
   if (!board) throw new HttpError(404, "Not found");
   const ok = await isWorkspaceMember(board.workspaceId, userId);
   if (!ok) throw new HttpError(403, "Forbidden");
@@ -88,7 +88,8 @@ async function deleteBoard(app, userId, id) {
   const board = await getBoardForWorkspaceAdmin(userId, id);
   const wid = board.workspaceId;
   const snapshot = board.toJSON();
-  await Board.deleteOne({ _id: id });
+  board.deletedAt = new Date();
+  await board.save();
   await logActivity(app, {
     workspaceId: wid,
     boardId: id,

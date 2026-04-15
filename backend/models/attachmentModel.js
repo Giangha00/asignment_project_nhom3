@@ -8,6 +8,7 @@ const attachmentSchema = new mongoose.Schema(
     fileUrl: { type: String, required: true },
     fileMimeType: { type: String, default: "" },
     fileSizeBytes: { type: Number, default: 0 },
+    deletedAt: { type: Date, default: null, index: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } }
 );

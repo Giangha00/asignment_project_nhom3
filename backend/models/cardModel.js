@@ -14,6 +14,7 @@ const cardSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     isArchived: { type: Boolean, default: false },
     archivedAt: { type: Date },
+    deletedAt: { type: Date, default: null, index: true },
   },
   { timestamps: true }
 );

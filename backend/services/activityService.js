@@ -19,7 +19,7 @@ async function listActivities(userId, { boardId, workspaceId, cardId }) {
   }
   if (cardId) {
     assertObjectId(cardId, "Invalid cardId");
-    const card = await Card.findById(cardId);
+    const card = await Card.findOne({ _id: cardId, deletedAt: null });
     if (!card) throw new HttpError(404, "Not found");
     const board = await getBoardWithAccess(card.boardId, userId);
     if (!board) throw new HttpError(403, "Forbidden");

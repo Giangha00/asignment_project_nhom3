@@ -8,7 +8,7 @@ const { isWorkspaceMember, isBoardMember } = require("./accessService");
 
 async function assertBoardAccess(userId, boardId) {
   assertObjectId(boardId);
-  const board = await Board.findById(boardId);
+  const board = await Board.findOne({ _id: boardId, deletedAt: null });
   if (!board) throw new HttpError(404, "Not found");
   const ok =
     (await isWorkspaceMember(board.workspaceId, userId)) || (await isBoardMember(boardId, userId));
@@ -18,7 +18,7 @@ async function assertBoardAccess(userId, boardId) {
 
 async function assertWorkspaceMemberForBoard(userId, boardId) {
   assertObjectId(boardId);
-  const board = await Board.findById(boardId);
+  const board = await Board.findOne({ _id: boardId, deletedAt: null });
   if (!board) throw new HttpError(404, "Not found");
   const ok = await isWorkspaceMember(board.workspaceId, userId);
   if (!ok) throw new HttpError(403, "Forbidden");
@@ -27,7 +27,7 @@ async function assertWorkspaceMemberForBoard(userId, boardId) {
 
 async function listBoardMembers(userId, boardId) {
   await assertBoardAccess(userId, boardId);
-  return BoardMember.find({ boardId }).populate("userId").lean();
+  return BoardMember.find({ boardId, deletedAt: null }).populate("userId").lean();
 }
 
 async function addBoardMember(app, actorUserId, boardId, body) {
@@ -38,8 +38,8 @@ async function addBoardMember(app, actorUserId, boardId, body) {
   const target = await User.findById(targetUserId);
   if (!target || target.deletedAt) throw new HttpError(404, "User not found");
   const row = await BoardMember.findOneAndUpdate(
-    { boardId, userId: targetUserId },
-    { $set: { role: role || "member" } },
+    { boardId, userId: targetUserId, deletedAt: null },
+    { $set: { role: role || "member", deletedAt: null } },
     { upsert: true, new: true }
   );
   emitToBoard(app, boardId, "boardMember:upserted", row.toJSON());
@@ -50,7 +50,7 @@ async function updateBoardMember(app, actorUserId, boardId, memberId, body) {
   assertObjectId(boardId, "Invalid id");
   assertObjectId(memberId, "Invalid id");
   await assertWorkspaceMemberForBoard(actorUserId, boardId);
-  const row = await BoardMember.findOne({ _id: memberId, boardId });
+  const row = await BoardMember.findOne({ _id: memberId, boardId, deletedAt: null });
   if (!row) throw new HttpError(404, "Not found");
   if (body.role !== undefined) row.role = body.role;
   await row.save();
@@ -62,8 +62,10 @@ async function removeBoardMember(app, actorUserId, boardId, memberId) {
   assertObjectId(boardId, "Invalid id");
   assertObjectId(memberId, "Invalid id");
   await assertWorkspaceMemberForBoard(actorUserId, boardId);
-  const row = await BoardMember.findOneAndDelete({ _id: memberId, boardId });
+  const row = await BoardMember.findOne({ _id: memberId, boardId, deletedAt: null });
   if (!row) throw new HttpError(404, "Not found");
+  row.deletedAt = new Date();
+  await row.save();
   emitToBoard(app, boardId, "boardMember:removed", { id: row._id });
 }
 

@@ -10,7 +10,7 @@ async function listLists(userId, boardId) {
   assertObjectId(boardId, "Invalid boardId");
   const board = await getBoardWithAccess(boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
-  return BoardList.find({ boardId }).sort({ position: 1, createdAt: 1 }).lean();
+  return BoardList.find({ boardId, deletedAt: null }).sort({ position: 1, createdAt: 1 }).lean();
 }
 
 async function createList(app, userId, body) {
@@ -39,7 +39,7 @@ async function createList(app, userId, body) {
 
 async function getList(userId, id) {
   assertObjectId(id);
-  const list = await BoardList.findById(id);
+  const list = await BoardList.findOne({ _id: id, deletedAt: null });
   if (!list) throw new HttpError(404, "Not found");
   const board = await getBoardWithAccess(list.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
@@ -74,7 +74,8 @@ async function deleteList(app, userId, id) {
   const list = await getList(userId, id);
   const board = await getBoardWithAccess(list.boardId, userId);
   const bid = list.boardId;
-  await BoardList.deleteOne({ _id: id });
+  list.deletedAt = new Date();
+  await list.save();
   await logActivity(app, {
     workspaceId: board.workspaceId,
     boardId: bid,

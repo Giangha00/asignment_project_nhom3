@@ -10,17 +10,21 @@ const { getBoardWithAccess } = require("./accessService");
 async function listCards(userId, { listId, boardId }) {
   if (listId) {
     assertObjectId(listId, "Invalid listId");
-    const bl = await BoardList.findById(listId);
+    const bl = await BoardList.findOne({ _id: listId, deletedAt: null });
     if (!bl) throw new HttpError(404, "List not found");
     const board = await getBoardWithAccess(bl.boardId, userId);
     if (!board) throw new HttpError(403, "Forbidden");
-    return Card.find({ listId, archivedAt: null }).sort({ position: 1, createdAt: 1 }).lean();
+    return Card.find({ listId, archivedAt: null, deletedAt: null })
+      .sort({ position: 1, createdAt: 1 })
+      .lean();
   }
   if (boardId) {
     assertObjectId(boardId, "Invalid boardId");
     const board = await getBoardWithAccess(boardId, userId);
     if (!board) throw new HttpError(403, "Forbidden");
-    return Card.find({ boardId, archivedAt: null }).sort({ position: 1, createdAt: 1 }).lean();
+    return Card.find({ boardId, archivedAt: null, deletedAt: null })
+      .sort({ position: 1, createdAt: 1 })
+      .lean();
   }
   throw new HttpError(400, "listId or boardId query required");
 }
@@ -30,7 +34,7 @@ async function createCard(app, userId, body) {
   if (!listId || !boardId || !title) {
     throw new HttpError(400, "listId, boardId, title required");
   }
-  const bl = await BoardList.findOne({ _id: listId, boardId });
+  const bl = await BoardList.findOne({ _id: listId, boardId, deletedAt: null });
   if (!bl) throw new HttpError(400, "listId must belong to boardId");
   const board = await getBoardWithAccess(boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
@@ -61,7 +65,7 @@ async function createCard(app, userId, body) {
 
 async function getCard(userId, id) {
   assertObjectId(id);
-  const card = await Card.findById(id);
+  const card = await Card.findOne({ _id: id, deletedAt: null });
   if (!card) throw new HttpError(404, "Not found");
   const board = await getBoardWithAccess(card.boardId, userId);
   if (!board) throw new HttpError(403, "Forbidden");
@@ -75,7 +79,7 @@ async function updateCard(app, userId, id, body) {
   const b = body || {};
   if (b.listId !== undefined) {
     assertObjectId(b.listId, "Invalid listId");
-    const bl = await BoardList.findOne({ _id: b.listId, boardId: card.boardId });
+    const bl = await BoardList.findOne({ _id: b.listId, boardId: card.boardId, deletedAt: null });
     if (!bl) throw new HttpError(400, "listId must stay on same board");
     card.listId = b.listId;
   }
@@ -107,8 +111,9 @@ async function updateCard(app, userId, id, body) {
 async function deleteCard(app, userId, id) {
   const card = await getCard(userId, id);
   const bid = card.boardId;
-  const boardDoc = await Board.findById(bid).lean();
-  await Card.deleteOne({ _id: id });
+  const boardDoc = await Board.findOne({ _id: bid, deletedAt: null }).lean();
+  card.deletedAt = new Date();
+  await card.save();
   await logActivity(app, {
     workspaceId: boardDoc.workspaceId,
     boardId: bid,
