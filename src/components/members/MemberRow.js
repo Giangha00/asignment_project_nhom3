@@ -1,6 +1,5 @@
 import React, { memo } from "react";
-import PropTypes from "prop-types";
-import { ChevronDown, LogOut, XCircle } from "lucide-react";
+import { LogOut, XCircle } from "lucide-react";
 import MemberAvatar from "./MemberAvatar";
 import BadgeRole from "./BadgeRole";
 
@@ -12,9 +11,20 @@ const actionBtnClass = boardBtnClass;
  * Một dòng trong danh sách thành viên (1 <li>).
  * avatarBackgroundClass tách ra khỏi member để không "nhét" field tạm vào object từ API.
  */
-function MemberRowComponent({ member, boardLabel, isCurrentMember }) {
+function MemberRowComponent({
+  member,
+  isCurrentMember,
+  canRemoveOthers,
+  onRemoveMember,
+  onLeaveWorkspace,
+  isBusy,
+}) {
+  const showRemoveOthers = Boolean(canRemoveOthers) && !isCurrentMember && typeof onRemoveMember === "function";
+
+  const loginLabel = member.lastLoginMonthYear || "—";
+
   return (
-    <li className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:gap-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <MemberAvatar
           name={member.name}
@@ -24,24 +34,16 @@ function MemberRowComponent({ member, boardLabel, isCurrentMember }) {
           size={40}
         />
         <div className="min-w-0">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
-            <span className="font-semibold text-[#dee4ea]">{member.name}</span>
-            <span className="text-sm text-[#738496]">{member.handle}</span>
-          </div>
+          <span className="font-semibold text-[#dee4ea]">{member.name}</span>
         </div>
       </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2">
-        <span className="text-xs text-[#738496] sm:min-w-[10rem] sm:text-right">
-          Lần hoạt động gần nhất {member.lastActive || "—"}
+      <div className="flex flex-1 justify-center px-2 text-center md:min-w-[12rem]">
+        <span className="text-xs leading-snug text-[#738496]">
+          Hoạt động gần đây :{" "}
+          <span className="whitespace-nowrap text-[#9fadbc]">{loginLabel}</span>
         </span>
-        <button
-          type="button"
-          className={boardBtnClass}
-          aria-label={`Số bảng tham gia: ${boardLabel}. Mở tùy chọn.`}
-        >
-          {boardLabel}
-          <ChevronDown className="h-3.5 w-3.5 opacity-80" aria-hidden />
-        </button>
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-2 md:shrink-0">
         <BadgeRole
           label={member.role || "Quản trị viên"}
           ariaLabel={`Vai trò thành viên ${member.name || ""}: ${member.role || "Quản trị viên"}`}
@@ -51,20 +53,24 @@ function MemberRowComponent({ member, boardLabel, isCurrentMember }) {
             type="button"
             className={actionBtnClass}
             aria-label="Rời khỏi không gian làm việc"
+            disabled={isBusy}
+            onClick={() => onLeaveWorkspace?.(member)}
           >
             <LogOut className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            Rời đi
+            {isBusy ? "Đang xử lý…" : "Rời đi"}
           </button>
-        ) : (
+        ) : showRemoveOthers ? (
           <button
             type="button"
             className={actionBtnClass}
+            disabled={isBusy}
             aria-label={`Loại bỏ ${member.name || "thành viên"} khỏi không gian làm việc`}
+            onClick={() => onRemoveMember(member)}
           >
             <XCircle className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            Loại bỏ
+            {isBusy ? "Đang xử lý…" : "Loại bỏ"}
           </button>
-        )}
+        ) : null}
       </div>
     </li>
   );
@@ -73,8 +79,11 @@ function MemberRowComponent({ member, boardLabel, isCurrentMember }) {
 const MemberRow = memo(MemberRowComponent, (prev, next) => {
   return (
     prev.member === next.member &&
-    prev.boardLabel === next.boardLabel &&
-    prev.isCurrentMember === next.isCurrentMember
+    prev.isCurrentMember === next.isCurrentMember &&
+    prev.canRemoveOthers === next.canRemoveOthers &&
+    prev.isBusy === next.isBusy &&
+    prev.onRemoveMember === next.onRemoveMember &&
+    prev.onLeaveWorkspace === next.onLeaveWorkspace
   );
 });
 MemberRow.displayName = "MemberRow";

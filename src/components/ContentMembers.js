@@ -10,7 +10,14 @@ import MemberRow from "./members/MemberRow";
 /** Số hiển thị kiểu "đang có / tối đa" (vd 4/10); sau có thể lấy giới hạn thật từ API. */
 const MEMBER_CAP = 10;
 
-function ContentMembers({ workspace, user, onInviteMember, onBack }) {
+function ContentMembers({
+  workspace,
+  user,
+  onInviteMember,
+  onLeaveWorkspace,
+  onRemoveMember,
+  onBack,
+}) {
   // Luôn là mảng — tránh crash khi API/workspace chưa có members
   const members = useMemo(() => {
     const m = workspace?.members;
@@ -29,6 +36,8 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
   const [inviteError, setInviteError] = useState("");
   // Thông báo thành công sau khi đóng popover (tự ẩn sau 5s)
   const [inviteToast, setInviteToast] = useState("");
+  const [memberActionMessage, setMemberActionMessage] = useState("");
+  const [removingMemberId, setRemovingMemberId] = useState(null);
   const inviteRef = useRef(null);
   // id duy nhất theo workspace — trùng label htmlFor nếu nhiều form trên trang
   const emailFieldId = useMemo(
@@ -57,6 +66,8 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
   useEffect(() => {
     setInviteError("");
     setInviteToast("");
+    setMemberActionMessage("");
+    setRemovingMemberId(null);
   }, [workspace?.id]);
 
   useEffect(() => {
@@ -65,14 +76,65 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
     return () => window.clearTimeout(t);
   }, [inviteToast]);
 
+  useEffect(() => {
+    if (!memberActionMessage) return undefined;
+    const t = window.setTimeout(() => setMemberActionMessage(""), 5000);
+    return () => window.clearTimeout(t);
+  }, [memberActionMessage]);
+
   // Dòng của user đăng nhập → hiện "Rời đi" thay vì "Loại bỏ"
   const isCurrentMember = (member) => {
     const uid = user?._id || user?.id;
     if (!uid) return false;
     const sid = String(uid);
     return (
-      member.id === `member-${sid}` || String(member.id || "").endsWith(sid)
+      member.id === `member-${sid}` ||
+      String(member.id || "").endsWith(sid) ||
+      Boolean(member.isCurrentUser)
     );
+  };
+
+  const me = useMemo(() => members.find((m) => isCurrentMember(m)), [members, user]);
+  const isWorkspaceAdmin = me?.roleKey === "admin";
+
+  const handleRemoveMember = async (member) => {
+    if (!workspace?.id || typeof onRemoveMember !== "function") return;
+    const mid = member?.id;
+    if (!mid || removingMemberId) return;
+    setMemberActionMessage("");
+    setRemovingMemberId(mid);
+    try {
+      const result = await Promise.resolve(onRemoveMember(workspace.id, mid));
+      if (result && result.ok === false) {
+        setMemberActionMessage(result.message || "Không thể loại thành viên.");
+        return;
+      }
+      setMemberActionMessage(result?.message || "Đã loại thành viên.");
+    } catch {
+      setMemberActionMessage("Đã xảy ra lỗi. Vui lòng thử lại.");
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
+
+  const handleLeaveWorkspaceClick = async (member) => {
+    if (!workspace?.id || typeof onLeaveWorkspace !== "function") return;
+    const mid = member?.id;
+    if (!mid || removingMemberId) return;
+    setMemberActionMessage("");
+    setRemovingMemberId(mid);
+    try {
+      const result = await Promise.resolve(onLeaveWorkspace(workspace.id, member));
+      if (result && result.ok === false) {
+        setMemberActionMessage(result.message || "Không thể rời không gian làm việc.");
+        return;
+      }
+      setMemberActionMessage(result?.message || "Đã rời không gian làm việc.");
+    } catch {
+      setMemberActionMessage("Đã xảy ra lỗi. Vui lòng thử lại.");
+    } finally {
+      setRemovingMemberId(null);
+    }
   };
 
   // Lọc theo chuỗi đã debounce — khớp tên hoặc @handle
@@ -318,6 +380,16 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
 
         {/* sr-only label: screen reader đọc mục đích ô (placeholder không đủ thay label) */}
         <div className="mb-4">
+          {memberActionMessage && (
+            <p
+              className={`mb-2 text-sm ${
+                memberActionMessage.startsWith("Đã ") ? "text-[#8fffb3]" : "text-[#ff8f8f]"
+              }`}
+              role="status"
+            >
+              {memberActionMessage}
+            </p>
+          )}
           <label htmlFor="members-filter-name" className="sr-only">
             Lọc theo tên thành viên
           </label>
@@ -332,18 +404,19 @@ function ContentMembers({ workspace, user, onInviteMember, onBack }) {
           />
         </div>
 
-        {/* boardLabel tạm theo index (1–3); sau thay bằng số bảng thật từ API */}
         {filteredMembers.length > 0 ? (
           <ul className="divide-y divide-[#3c444d] rounded-md border border-[#3c444d] bg-[#22272b]">
-            {filteredMembers.map((member, index) => {
-              const me = isCurrentMember(member);
-              const boardLabel = `Bảng (${(index % 3) + 1})`;
+            {filteredMembers.map((member) => {
+              const isMe = isCurrentMember(member);
               return (
                 <MemberRow
                   key={member.id}
                   member={member}
-                  boardLabel={boardLabel}
-                  isCurrentMember={me}
+                  isCurrentMember={isMe}
+                  canRemoveOthers={isWorkspaceAdmin}
+                  onRemoveMember={handleRemoveMember}
+                  onLeaveWorkspace={handleLeaveWorkspaceClick}
+                  isBusy={removingMemberId === member.id}
                 />
               );
             })}

@@ -1,3 +1,13 @@
+/** Hiển thị "tháng m/Y" từ ISO/Date (dùng lastLoginAt từ user đã populate). */
+function formatLastLoginMonthYear(value) {
+  if (value == null || value === "") return "";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const month = d.getMonth() + 1;
+  const year = d.getFullYear();
+  return `tháng ${month}/${year}`;
+}
+
 function getInitials(name = "") {
   const parts = String(name)
     .trim()
@@ -44,6 +54,14 @@ function mapMemberToUi(member, currentUser) {
         : null;
 
   const resolvedRole = String(member.role || "").toLowerCase();
+  const roleKey =
+    resolvedRole === "admin"
+      ? "admin"
+      : resolvedRole === "guest"
+        ? "guest"
+        : resolvedRole === "observer"
+          ? "observer"
+          : "member";
   const uiRole =
     resolvedRole === "admin"
       ? "Quản trị viên"
@@ -53,6 +71,15 @@ function mapMemberToUi(member, currentUser) {
           ? "Quan sát viên"
           : member.role || "Thành viên";
 
+  const rawLastLogin =
+    nestedUser?.lastLoginAt ??
+    member.lastLoginAt ??
+    (typeof member.userId === "object" && member.userId && !Array.isArray(member.userId)
+      ? member.userId.lastLoginAt
+      : undefined);
+
+  const lastLoginMonthYear = formatLastLoginMonthYear(rawLastLogin);
+
   return {
     ...member,
     id,
@@ -61,7 +88,9 @@ function mapMemberToUi(member, currentUser) {
     handle: member.handle || `@${username}`,
     initials: member.initials || getInitials(name),
     avatarUrl: member.avatarUrl || nestedUser?.avatarUrl || "",
+    roleKey,
     role: uiRole,
+    lastLoginMonthYear,
     lastActive: member.lastActive || "Mới tham gia",
     boardsCount: resolvedBoardsCount,
     isCurrentUser:
@@ -82,7 +111,9 @@ function buildDefaultMembers(currentUser) {
       initials: currentUser.initials || getInitials(currentUser.name || currentUser.fullName || ""),
       handle: `@${username}`,
       avatarUrl: currentUser.avatarUrl || "",
+      roleKey: "admin",
       role: currentUser.role || "Quản trị viên",
+      lastLoginMonthYear: formatLastLoginMonthYear(currentUser?.lastLoginAt),
       lastActive: "Mới tham gia",
       boardsCount: 1,
       isCurrentUser: true,

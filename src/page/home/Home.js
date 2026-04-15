@@ -13,6 +13,8 @@ function Home({ currentUser, onLogout }) {
     resolvedUser,
     workspaces,
     inviteMember,
+    handleLeaveWorkspace,
+    removeMember,
     removeWorkspace,
     toggleWorkspace,
     handleSelectSection,
@@ -53,6 +55,8 @@ function Home({ currentUser, onLogout }) {
           workspace={activeWorkspace}
           user={resolvedUser}
           onInviteMember={inviteMember}
+          onLeaveWorkspace={handleLeaveWorkspace}
+          onRemoveMember={removeMember}
           onBack={() => handleSelectSection({ workspaceId: activeWorkspaceId, section: "home" })}
         />
       ) : (
