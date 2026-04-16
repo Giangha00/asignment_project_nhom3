@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useNotifications } from "../context/NotificationContext";
 import api from "../lib/api";
+import { extractUserId } from "../lib/ids";
+import { notify, shouldDedupe } from "../lib/notify";
 import { getSocket } from "../lib/socket";
 
 const DND_MIME = "application/json";
@@ -36,9 +39,11 @@ function mapBoardMemberToUi(member) {
   };
 }
 
-export function useBoardDetail() {
+export function useBoardDetail(currentUser) {
   const { boardId: boardIdParam, workspaceId: workspaceIdParam } = useParams();
   const navigate = useNavigate();
+  const { addNotification } = useNotifications();
+  const myUserId = extractUserId(currentUser);
 
   const boardId = boardIdParam ? decodeURIComponent(boardIdParam) : "";
   const workspaceId = workspaceIdParam ? decodeURIComponent(workspaceIdParam) : "";
@@ -147,6 +152,44 @@ export function useBoardDetail() {
     socket.on("list:updated", onListUpdated);
     socket.on("list:deleted", onListDeleted);
 
+    // Khi chính user được thêm vào bảng: cập nhật danh sách member + một dòng trong panel chuông (socket board room).
+    const onBoardMemberUpserted = async (payload) => {
+      if (String(payload?.boardId) !== boardId) return;
+      try {
+        const membersRes = await api.get(`/api/boards/${boardId}/members`);
+        const rows = Array.isArray(membersRes.data) ? membersRes.data : [];
+        setBoardMembers(rows.map(mapBoardMemberToUi).filter((m) => m.id));
+      } catch {
+        // ignore
+      }
+
+      const targetId = extractUserId(payload?.userId);
+      if (!myUserId || !targetId || targetId !== myUserId) return;
+
+      const dedupeKey = `board-member-invite:${payload?._id || payload?.id || `${boardId}:${targetId}`}`;
+      if (shouldDedupe(dedupeKey)) return;
+
+      const boardName = boardMeta?.name || "Bảng";
+      const myEmail = String(currentUser?.email || "").toLowerCase();
+
+      addNotification({
+        kind: "board_invite",
+        persistKey: `board_member:${String(payload?._id || payload?.id || `${boardId}:${targetId}`)}`,
+        actorName: "Hệ thống",
+        actorInitials: "HS",
+        actionLine: "Bạn đã được thêm vào bảng",
+        targetLabel: boardName,
+        targetHref: workspaceIdParam
+          ? `/workspace/${encodeURIComponent(workspaceIdParam)}/board/${encodeURIComponent(boardId)}`
+          : undefined,
+        metaLine: myEmail
+          ? `Tài khoản ${myEmail} có quyền truy cập bảng này.`
+          : undefined,
+      });
+    };
+
+    socket.on("boardMember:upserted", onBoardMemberUpserted);
+
     return () => {
       socket.off("card:created", onCardCreated);
       socket.off("card:updated", onCardUpdated);
@@ -154,9 +197,10 @@ export function useBoardDetail() {
       socket.off("list:created", onListCreated);
       socket.off("list:updated", onListUpdated);
       socket.off("list:deleted", onListDeleted);
+      socket.off("boardMember:upserted", onBoardMemberUpserted);
       socket.emit("leave:board", boardId);
     };
-  }, [boardId]);
+  }, [addNotification, boardId, boardMeta?.name, currentUser?.email, myUserId, workspaceIdParam]);
 
   // ── Computed ────────────────────────────────────────────────────────────────
   const listColumns = useMemo(
@@ -352,10 +396,18 @@ export function useBoardDetail() {
       const usersRes = await api.get("/api/users");
       const users = Array.isArray(usersRes.data) ? usersRes.data : [];
       const targetUser = users.find((u) => String(u?.email || "").toLowerCase() === email);
-      if (!targetUser) { setInviteError("Không tìm thấy người dùng với email này."); return; }
+      if (!targetUser) {
+        setInviteError("Không tìm thấy người dùng với email này.");
+        notify.error("Không tìm thấy người dùng với email này.");
+        return;
+      }
 
       const targetUserId = String(targetUser?._id || targetUser?.id || "");
-      if (!targetUserId) { setInviteError("Không xác định được người dùng để mời."); return; }
+      if (!targetUserId) {
+        setInviteError("Không xác định được người dùng để mời.");
+        notify.error("Không xác định được người dùng để mời.");
+        return;
+      }
 
       const response = await api.post(`/api/boards/${boardId}/members`, { userId: targetUserId, role: "member" });
       const created = mapBoardMemberToUi(response.data || {});
@@ -369,7 +421,9 @@ export function useBoardDetail() {
       setInviteSuccess("Đã mời thành viên vào bảng.");
       setInviteEmail("");
     } catch (err) {
-      setInviteError(err?.response?.data?.message || "Không thể mời thành viên.");
+      const msg = err?.response?.data?.message || "Không thể mời thành viên.";
+      setInviteError(msg);
+      notify.error(msg);
     } finally {
       setInviteLoading(false);
     }

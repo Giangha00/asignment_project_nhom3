@@ -7,6 +7,7 @@ import ResetPassword from "./page/authen/ResetPassword";
 import Home from "./page/home/Home";
 import BoardDetail from "./page/board/BoardDetail";
 import api from "./lib/api";
+import { NotificationProvider } from "./context/NotificationContext";
 
 import "./App.css";
 
@@ -16,6 +17,7 @@ import "./App.css";
  * - Khởi động: GET /api/auth/session (cookie JWT) → có user thì coi như đã đăng nhập.
  * - currentUser: dùng cho Home, header; null = chưa đăng nhập.
  * - Đăng xuất: POST /api/auth/logout + xóa state (cookie được server clear).
+ * - NotificationProvider: state thông báo chuông dùng chung Home + BoardDetail.
  */
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -76,6 +78,7 @@ function App() {
   }
 
   return (
+    <NotificationProvider>
     <Routes>
       <Route
         path="/"
@@ -131,6 +134,7 @@ function App() {
         element={<Navigate to={isAuthenticated ? "/home" : "/"} replace />}
       />
     </Routes>
+    </NotificationProvider>
   );
 }
 

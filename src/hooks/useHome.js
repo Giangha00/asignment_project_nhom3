@@ -1,15 +1,31 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
+import { useNotifications } from "../context/NotificationContext";
+import { extractUserId } from "../lib/ids";
 import { useWorkspaceShell } from "./useWorkspaceShell";
 import { getSocket } from "../lib/socket";
+
+function initialsFromName(name) {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
+}
 
 export function useHome(currentUser) {
   const { workspaceId: workspaceIdParam, section: sectionParam } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState("home");
-  
+  const { addNotification } = useNotifications();
+
+  const myUserId = extractUserId(currentUser);
+  const myEmail = String(currentUser?.email || "").toLowerCase();
+
   const {
     activeWorkspace,
     activeWorkspaceId,
@@ -27,6 +43,73 @@ export function useHome(currentUser) {
     upsertWorkspace,
     workspaces,
   } = useWorkspaceShell(currentUser, workspaceIdParam || null);
+
+  /**
+   * Cùng một lời mời workspace có thể tới qua socket và qua effect đồng bộ GET /members sau load trang;
+   * ref giữ rowKey đã xử lý trong phiên để không gọi addNotification hai lần.
+   */
+  const workspaceInviteDeliveredRef = useRef(new Set());
+
+  /**
+   * Chỉ khi user hiện tại là người được mời (target) và có invitedBy: đẩy mục vào panel chuông.
+   * Không bật Toast — chỉ addNotification (Toastify dùng riêng cho lỗi ở màn khác).
+   */
+  const deliverWorkspaceInvite = useCallback(
+    async ({ wid, memberRowId, invitedById, targetUserId }) => {
+      if (!myUserId || !targetUserId || targetUserId !== myUserId) return;
+      if (!invitedById || invitedById === myUserId) return;
+
+      const rowKey = String(memberRowId || `${wid}:${myUserId}`);
+      if (workspaceInviteDeliveredRef.current.has(rowKey)) return;
+
+      let workspaceName =
+        workspaces.find((w) => w.id === wid)?.name || "";
+      if (!workspaceName) {
+        try {
+          const wsRes = await api.get(`/api/workspaces/${wid}`);
+          workspaceName = wsRes.data?.name || "Workspace";
+        } catch {
+          workspaceName = "Workspace";
+        }
+      }
+
+      let inviterName = "Một thành viên";
+      let inviterInitials = "?";
+      try {
+        const usersRes = await api.get("/api/users");
+        const users = Array.isArray(usersRes.data) ? usersRes.data : [];
+        const inviter = users.find(
+          (u) => String(u?._id || u?.id || "") === invitedById,
+        );
+        if (inviter) {
+          inviterName =
+            inviter.fullName ||
+            inviter.name ||
+            inviter.username ||
+            inviterName;
+          inviterInitials = initialsFromName(inviterName);
+        }
+      } catch {
+        // giữ mặc định
+      }
+
+      workspaceInviteDeliveredRef.current.add(rowKey);
+
+      addNotification({
+        kind: "workspace_invite",
+        persistKey: `ws_member:${rowKey}`,
+        actorName: inviterName,
+        actorInitials: inviterInitials,
+        actionLine: "đã thêm bạn vào workspace",
+        targetLabel: workspaceName,
+        targetHref: `/workspace/${encodeURIComponent(wid)}/home`,
+        metaLine: myEmail
+          ? `Tài khoản ${myEmail} vừa được thêm vào không gian làm việc.`
+          : undefined,
+      });
+    },
+    [addNotification, myEmail, myUserId, workspaces],
+  );
 
   useEffect(() => {
     const focus = location.state?.workspaceShellFocus;
@@ -64,6 +147,58 @@ export function useHome(currentUser) {
       setActiveWorkspaceId(workspaceIdParam);
     }
   }, [workspaceIdParam, setActiveWorkspaceId]);
+
+  /**
+   * Người được mời thường CHƯA join socket room `workspace:*` tại thời điểm emit → họ không nhận
+   * `workspaceMember:upserted`. Sau khi GET /workspaces có workspace mới, đồng bộ từ API members
+   * (invitedBy + joinedAt) để vẫn có thông báo trong panel — dữ liệu thật từ backend.
+   */
+  const workspaceIdsSignature = workspaces
+    .map((w) => w?.id)
+    .filter((id) => id && id !== "default-workspace")
+    .sort()
+    .join(",");
+
+  useEffect(() => {
+    if (!myUserId || !workspaceIdsSignature) return;
+    let cancelled = false;
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+
+    const run = async () => {
+      const ids = workspaceIdsSignature.split(",").filter(Boolean);
+      for (const wid of ids) {
+        if (cancelled) return;
+        try {
+          const res = await api.get(`/api/workspaces/${wid}/members`);
+          const rows = Array.isArray(res.data) ? res.data : [];
+          const mine = rows.find(
+            (r) => extractUserId(r.userId) === myUserId,
+          );
+          if (!mine) continue;
+
+          const invitedById = extractUserId(mine.invitedBy);
+          if (!invitedById || invitedById === myUserId) continue;
+
+          const ja = mine.joinedAt ? new Date(mine.joinedAt).getTime() : 0;
+          if (!ja || Date.now() - ja > maxAgeMs) continue;
+
+          await deliverWorkspaceInvite({
+            wid,
+            memberRowId: String(mine._id || mine.id || ""),
+            invitedById,
+            targetUserId: extractUserId(mine.userId),
+          });
+        } catch {
+          // bỏ qua workspace không đọc được
+        }
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceIdsSignature, myUserId, deliverWorkspaceInvite]);
 
   // Socket: vào phòng từng workspace để nhận sự kiện realtime (bảng + thành viên).
   useEffect(() => {
@@ -122,11 +257,19 @@ export function useHome(currentUser) {
       removeBoardFromWorkspace(workspaceId, boardId);
     };
 
-    // Backend emit khi thêm/cập nhật membership — payload có workspaceId → gọi API làm mới danh sách.
-    const handleWorkspaceMemberUpserted = (payload) => {
+    // Backend emit khi thêm/cập nhật membership: refresh UI + thử đẩy thông báo panel nếu payload là “bạn được mời”.
+    const handleWorkspaceMemberUpserted = async (payload) => {
       const wid = String(payload?.workspaceId || "");
       if (!wid || wid === "default-workspace") return;
+
       refreshWorkspaceMembers(wid);
+
+      await deliverWorkspaceInvite({
+        wid,
+        memberRowId: String(payload?._id || payload?.id || ""),
+        invitedById: extractUserId(payload?.invitedBy),
+        targetUserId: extractUserId(payload?.userId),
+      });
     };
 
     const handleWorkspaceMemberUpdated = (payload) => {
@@ -171,6 +314,7 @@ export function useHome(currentUser) {
     };
   }, [
     addBoardToWorkspace,
+    deliverWorkspaceInvite,
     refreshWorkspaceMembers,
     removeBoardFromWorkspace,
     updateBoardInWorkspace,

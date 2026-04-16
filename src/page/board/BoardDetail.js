@@ -27,7 +27,7 @@ function BoardDetail({ currentUser, onLogout }) {
     openListComposer, closeListComposer, submitNewList,
     handleInviteMember,
     navigate,
-  } = useBoardDetail();
+  } = useBoardDetail(currentUser);
 
   if (loading) {
     return (

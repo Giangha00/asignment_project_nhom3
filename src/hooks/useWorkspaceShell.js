@@ -289,7 +289,12 @@ export function useWorkspaceShell(currentUser, initialActiveWorkspaceId = null) 
           })
         );
 
-        return { ok: true, message: "Đã mời thành viên thành công." };
+        return {
+          ok: true,
+          message: "Đã mời thành viên thành công.",
+          invitedEmail: normalizedEmail,
+          workspaceName: workspace?.name || "",
+        };
       } catch (error) {
         const status = error?.response?.status;
         const apiMessage = error?.response?.data?.message || error?.response?.data?.error;
