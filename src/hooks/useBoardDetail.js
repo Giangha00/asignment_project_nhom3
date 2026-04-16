@@ -168,7 +168,7 @@ export function useBoardDetail() {
   );
 
   // ── Card CRUD ───────────────────────────────────────────────────────────────
-  const handleSaveCard = async (card, patch) => {
+  const handleSaveCard = async (card, patch, options = {}) => {
     setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...patch } : c)));
     setSelectedCard((prev) => (prev?.id === card.id ? { ...prev, ...patch } : prev));
     try {
@@ -176,7 +176,11 @@ export function useBoardDetail() {
     } catch (err) {
       setCards((prev) => prev.map((c) => (c.id === card.id ? card : c)));
       setSelectedCard((prev) => (prev?.id === card.id ? card : prev));
-      window.alert(err?.response?.data?.message || "Không thể cập nhật thẻ.");
+      const message = err?.response?.data?.message || "Không thể cập nhật thẻ.";
+      if (!options?.silent) {
+        window.alert(message);
+      }
+      throw new Error(message);
     }
   };
 

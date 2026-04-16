@@ -85,7 +85,7 @@ function BoardDetail({ currentUser, onLogout }) {
           card={selectedCard}
           listName={selectedCardList?.name || ""}
           onClose={() => setSelectedCard(null)}
-          onSave={(patch) => handleSaveCard(selectedCard, patch)}
+          onSave={(patch, options) => handleSaveCard(selectedCard, patch, options)}
           onDelete={() => handleDeleteCard(selectedCard)}
         />
       )}
