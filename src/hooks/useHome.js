@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
 import { useNotifications } from "../context/NotificationContext";
+import {
+  deliverBoardShareFromPayload,
+  deliverBoardShareNotification,
+} from "../lib/boardInviteNotification";
 import { extractUserId } from "../lib/ids";
 import { useWorkspaceShell } from "./useWorkspaceShell";
 import { getSocket } from "../lib/socket";
@@ -200,7 +204,72 @@ export function useHome(currentUser) {
     };
   }, [workspaceIdsSignature, myUserId, deliverWorkspaceInvite]);
 
-  // Socket: vào phòng từng workspace để nhận sự kiện realtime (bảng + thành viên).
+  /**
+   * Đồng bộ thông báo chia sẻ bảng sau load (giống workspace): GET /boards/:id/members,
+   * bản ghi của user + createdAt gần đây — không cần invitedBy (API board member không có field đó).
+   */
+  const boardsWorkspaceSignature = useMemo(() => {
+    const parts = [];
+    for (const w of workspaces) {
+      if (!w?.id || w.id === "default-workspace") continue;
+      for (const b of w.boards || []) {
+        const bid = String(b?.apiId || b?._id || b?.boardId || b?.id || "");
+        if (bid) parts.push(`${w.id}/${bid}`);
+      }
+    }
+    return parts.sort().join(",");
+  }, [workspaces]);
+
+  useEffect(() => {
+    if (!myUserId || !boardsWorkspaceSignature) return;
+    let cancelled = false;
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+
+    const run = async () => {
+      const pairs = boardsWorkspaceSignature.split(",").filter(Boolean);
+      for (const pair of pairs) {
+        if (cancelled) return;
+        const slash = pair.indexOf("/");
+        if (slash === -1) continue;
+        const wid = pair.slice(0, slash);
+        const bid = pair.slice(slash + 1);
+        if (!wid || !bid) continue;
+        try {
+          const res = await api.get(`/api/boards/${bid}/members`);
+          const rows = Array.isArray(res.data) ? res.data : [];
+          const mine = rows.find(
+            (r) => extractUserId(r.userId) === myUserId,
+          );
+          if (!mine) continue;
+
+          const created = mine.createdAt
+            ? new Date(mine.createdAt).getTime()
+            : 0;
+          if (!created || Date.now() - created > maxAgeMs) continue;
+
+          await deliverBoardShareNotification({
+            addNotification,
+            myUserId,
+            myEmail,
+            boardId: bid,
+            memberRowId: String(mine._id || mine.id || ""),
+            invitedById: extractUserId(mine.invitedBy),
+            targetUserId: extractUserId(mine.userId),
+            workspaces,
+          });
+        } catch {
+          // bỏ qua bảng không đọc được
+        }
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [boardsWorkspaceSignature, myUserId, addNotification, myEmail, workspaces]);
+
+  // Socket: vào phòng từng workspace + từng bảng (để nhận boardMember:upserted khi đang ở Home).
   useEffect(() => {
     const socket = getSocket();
     const workspaceIds = workspaces
@@ -209,6 +278,20 @@ export function useHome(currentUser) {
 
     workspaceIds.forEach((workspaceId) => {
       socket.emit("join:workspace", workspaceId);
+    });
+
+    const boardIds = [
+      ...new Set(
+        workspaces.flatMap((ws) =>
+          (Array.isArray(ws?.boards) ? ws.boards : []).map((b) =>
+            getBoardApiId(b),
+          ),
+        ),
+      ),
+    ].filter(Boolean);
+
+    boardIds.forEach((bid) => {
+      socket.emit("join:board", bid);
     });
 
     const handleBoardCreated = (payload) => {
@@ -294,12 +377,22 @@ export function useHome(currentUser) {
       refreshWorkspaceMembers(ws.id);
     };
 
+    const handleBoardMemberUpserted = async (payload) => {
+      await deliverBoardShareFromPayload(payload, {
+        addNotification,
+        myUserId,
+        myEmail,
+        workspaces,
+      });
+    };
+
     socket.on("board:created", handleBoardCreated);
     socket.on("board:updated", handleBoardUpdated);
     socket.on("board:deleted", handleBoardDeleted);
     socket.on("workspaceMember:upserted", handleWorkspaceMemberUpserted);
     socket.on("workspaceMember:updated", handleWorkspaceMemberUpdated);
     socket.on("workspaceMember:removed", handleWorkspaceMemberRemoved);
+    socket.on("boardMember:upserted", handleBoardMemberUpserted);
 
     return () => {
       socket.off("board:created", handleBoardCreated);
@@ -308,13 +401,20 @@ export function useHome(currentUser) {
       socket.off("workspaceMember:upserted", handleWorkspaceMemberUpserted);
       socket.off("workspaceMember:updated", handleWorkspaceMemberUpdated);
       socket.off("workspaceMember:removed", handleWorkspaceMemberRemoved);
+      socket.off("boardMember:upserted", handleBoardMemberUpserted);
       workspaceIds.forEach((workspaceId) => {
         socket.emit("leave:workspace", workspaceId);
+      });
+      boardIds.forEach((bid) => {
+        socket.emit("leave:board", bid);
       });
     };
   }, [
     addBoardToWorkspace,
+    addNotification,
     deliverWorkspaceInvite,
+    myEmail,
+    myUserId,
     refreshWorkspaceMembers,
     removeBoardFromWorkspace,
     updateBoardInWorkspace,

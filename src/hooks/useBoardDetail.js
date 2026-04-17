@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useNotifications } from "../context/NotificationContext";
 import api from "../lib/api";
 import { extractUserId } from "../lib/ids";
-import { notify, shouldDedupe } from "../lib/notify";
+import { deliverBoardShareFromPayload } from "../lib/boardInviteNotification";
+import { notify } from "../lib/notify";
 import { getSocket } from "../lib/socket";
 
 const DND_MIME = "application/json";
@@ -152,7 +153,7 @@ export function useBoardDetail(currentUser) {
     socket.on("list:updated", onListUpdated);
     socket.on("list:deleted", onListDeleted);
 
-    // Khi chính user được thêm vào bảng: cập nhật danh sách member + một dòng trong panel chuông (socket board room).
+    // Khi chính user được thêm vào bảng: cập nhật member + thông báo chuông (cùng helper với useHome).
     const onBoardMemberUpserted = async (payload) => {
       if (String(payload?.boardId) !== boardId) return;
       try {
@@ -163,28 +164,12 @@ export function useBoardDetail(currentUser) {
         // ignore
       }
 
-      const targetId = extractUserId(payload?.userId);
-      if (!myUserId || !targetId || targetId !== myUserId) return;
-
-      const dedupeKey = `board-member-invite:${payload?._id || payload?.id || `${boardId}:${targetId}`}`;
-      if (shouldDedupe(dedupeKey)) return;
-
-      const boardName = boardMeta?.name || "Bảng";
       const myEmail = String(currentUser?.email || "").toLowerCase();
-
-      addNotification({
-        kind: "board_invite",
-        persistKey: `board_member:${String(payload?._id || payload?.id || `${boardId}:${targetId}`)}`,
-        actorName: "Hệ thống",
-        actorInitials: "HS",
-        actionLine: "Bạn đã được thêm vào bảng",
-        targetLabel: boardName,
-        targetHref: workspaceIdParam
-          ? `/workspace/${encodeURIComponent(workspaceIdParam)}/board/${encodeURIComponent(boardId)}`
-          : undefined,
-        metaLine: myEmail
-          ? `Tài khoản ${myEmail} có quyền truy cập bảng này.`
-          : undefined,
+      await deliverBoardShareFromPayload(payload, {
+        addNotification,
+        myUserId,
+        myEmail,
+        workspaces: [],
       });
     };
 
@@ -200,7 +185,7 @@ export function useBoardDetail(currentUser) {
       socket.off("boardMember:upserted", onBoardMemberUpserted);
       socket.emit("leave:board", boardId);
     };
-  }, [addNotification, boardId, boardMeta?.name, currentUser?.email, myUserId, workspaceIdParam]);
+  }, [addNotification, boardId, currentUser?.email, myUserId]);
 
   // ── Computed ────────────────────────────────────────────────────────────────
   const listColumns = useMemo(
