@@ -6,6 +6,8 @@ import { extractUserId } from "../lib/ids";
 import { deliverBoardShareFromPayload } from "../lib/boardInviteNotification";
 import { notify } from "../lib/notify";
 import { getSocket } from "../lib/socket";
+import { validateDateRange } from "../lib/dateRange";
+import { normalizePriority } from "../lib/cardPriority";
 
 const DND_MIME = "application/json";
 
@@ -23,6 +25,9 @@ function mapCardToUi(card) {
     listId: String(card.listId || ""),
     title: card.title || "",
     description: card.description || "",
+    priority: normalizePriority(card.priority),
+    startAt: card.startAt || null,
+    dueAt: card.dueAt || null,
     position: card.position ?? 0,
   };
 }
@@ -73,8 +78,22 @@ export function useBoardDetail(currentUser) {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState("");
+  const [composerStartAt, setComposerStartAt] = useState(null);
+  const [composerDueAt, setComposerDueAt] = useState(null);
+  const [composerRangeError, setComposerRangeError] = useState("");
 
   // ── Load board data ─────────────────────────────────────────────────────────
+  const refreshBoardMembers = useCallback(async () => {
+    if (!boardId) return;
+    try {
+      const membersRes = await api.get(`/api/boards/${boardId}/members`);
+      const rows = Array.isArray(membersRes.data) ? membersRes.data : [];
+      setBoardMembers(rows.map(mapBoardMemberToUi).filter((m) => m.id));
+    } catch {
+      setBoardMembers([]);
+    }
+  }, [boardId]);
+
   const loadBoardData = useCallback(async () => {
     if (!boardId) return;
     setLoading(true);
@@ -88,19 +107,13 @@ export function useBoardDetail(currentUser) {
       setBoardMeta(boardRes.data || null);
       setLists((Array.isArray(listsRes.data) ? listsRes.data : []).map(mapListToUi));
       setCards((Array.isArray(cardsRes.data) ? cardsRes.data : []).map(mapCardToUi));
-      try {
-        const membersRes = await api.get(`/api/boards/${boardId}/members`);
-        const rows = Array.isArray(membersRes.data) ? membersRes.data : [];
-        setBoardMembers(rows.map(mapBoardMemberToUi).filter((m) => m.id));
-      } catch {
-        setBoardMembers([]);
-      }
+      await refreshBoardMembers();
     } catch (err) {
       setLoadError(err?.response?.data?.message || "Không thể tải dữ liệu bảng.");
     } finally {
       setLoading(false);
     }
-  }, [boardId]);
+  }, [boardId, refreshBoardMembers]);
 
   useEffect(() => { loadBoardData(); }, [loadBoardData]);
 
@@ -153,27 +166,23 @@ export function useBoardDetail(currentUser) {
     socket.on("list:updated", onListUpdated);
     socket.on("list:deleted", onListDeleted);
 
-    // Khi chính user được thêm vào bảng: cập nhật member + thông báo chuông (cùng helper với useHome).
-    const onBoardMemberUpserted = async (payload) => {
-      if (String(payload?.boardId) !== boardId) return;
-      try {
-        const membersRes = await api.get(`/api/boards/${boardId}/members`);
-        const rows = Array.isArray(membersRes.data) ? membersRes.data : [];
-        setBoardMembers(rows.map(mapBoardMemberToUi).filter((m) => m.id));
-      } catch {
-        // ignore
-      }
-
-      const myEmail = String(currentUser?.email || "").toLowerCase();
-      await deliverBoardShareFromPayload(payload, {
-        addNotification,
-        myUserId,
-        myEmail,
-        workspaces: [],
-      });
+    const onBoardMemberUpserted = (payload) => {
+      if (String(payload?.boardId || "") !== boardId) return;
+      refreshBoardMembers();
+    };
+    const onBoardMemberUpdated = (payload) => {
+      if (String(payload?.boardId || "") !== boardId) return;
+      refreshBoardMembers();
+    };
+    const onBoardMemberRemoved = (payload) => {
+      const id = normalizeId(payload);
+      if (!id) return;
+      setBoardMembers((prev) => prev.filter((m) => m.id !== id));
     };
 
     socket.on("boardMember:upserted", onBoardMemberUpserted);
+    socket.on("boardMember:updated", onBoardMemberUpdated);
+    socket.on("boardMember:removed", onBoardMemberRemoved);
 
     return () => {
       socket.off("card:created", onCardCreated);
@@ -183,9 +192,11 @@ export function useBoardDetail(currentUser) {
       socket.off("list:updated", onListUpdated);
       socket.off("list:deleted", onListDeleted);
       socket.off("boardMember:upserted", onBoardMemberUpserted);
+      socket.off("boardMember:updated", onBoardMemberUpdated);
+      socket.off("boardMember:removed", onBoardMemberRemoved);
       socket.emit("leave:board", boardId);
     };
-  }, [addNotification, boardId, currentUser?.email, myUserId]);
+  }, [boardId, refreshBoardMembers]);
 
   // ── Computed ────────────────────────────────────────────────────────────────
   const listColumns = useMemo(
@@ -197,7 +208,16 @@ export function useBoardDetail(currentUser) {
   );
 
   // ── Card CRUD ───────────────────────────────────────────────────────────────
-  const handleSaveCard = async (card, patch) => {
+  const handleSaveCard = async (card, patch, options = {}) => {
+    const nextStartAt = patch.startAt !== undefined ? patch.startAt : card.startAt;
+    const nextDueAt = patch.dueAt !== undefined ? patch.dueAt : card.dueAt;
+    const rangeValidation = validateDateRange(nextStartAt, nextDueAt);
+    if (!rangeValidation.isValid) {
+      const validationMessage = rangeValidation.error || "Khoảng thời gian không hợp lệ.";
+      if (!options?.silent) window.alert(validationMessage);
+      throw new Error(validationMessage);
+    }
+
     setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...patch } : c)));
     setSelectedCard((prev) => (prev?.id === card.id ? { ...prev, ...patch } : prev));
     try {
@@ -205,7 +225,11 @@ export function useBoardDetail(currentUser) {
     } catch (err) {
       setCards((prev) => prev.map((c) => (c.id === card.id ? card : c)));
       setSelectedCard((prev) => (prev?.id === card.id ? card : prev));
-      window.alert(err?.response?.data?.message || "Không thể cập nhật thẻ.");
+      const message = err?.response?.data?.message || "Không thể cập nhật thẻ.";
+      if (!options?.silent) {
+        window.alert(message);
+      }
+      throw new Error(message);
     }
   };
 
@@ -336,20 +360,55 @@ export function useBoardDetail(currentUser) {
   };
 
   // ── Composer ────────────────────────────────────────────────────────────────
-  const openComposer = (listId) => { setAddingForListId(listId); setComposerTitle(""); };
-  const closeComposer = () => { setAddingForListId(null); setComposerTitle(""); };
+  const openComposer = (listId) => {
+    setAddingForListId(listId);
+    setComposerTitle("");
+    setComposerStartAt(null);
+    setComposerDueAt(null);
+    setComposerRangeError("");
+  };
+
+  const closeComposer = () => {
+    setAddingForListId(null);
+    setComposerTitle("");
+    setComposerStartAt(null);
+    setComposerDueAt(null);
+    setComposerRangeError("");
+  };
 
   const submitCard = async (listId) => {
     const trimmed = composerTitle.trim();
     if (!trimmed || !listId || !boardId) return;
+    const localStartAt = composerStartAt;
+    const localDueAt = composerDueAt;
+
+    const rangeValidation = validateDateRange(localStartAt, localDueAt);
+    if (!rangeValidation.isValid) {
+      setComposerRangeError(rangeValidation.error || "Khoảng thời gian không hợp lệ.");
+      return;
+    }
+
     const nextPosition = cards.filter((c) => c.listId === listId).reduce((max, c) => Math.max(max, Number(c.position ?? 0)), -1) + 1;
     closeComposer();
     try {
-      await api.post("/api/cards", { boardId, listId, title: trimmed, description: "", position: nextPosition });
+      await api.post("/api/cards", {
+        boardId,
+        listId,
+        title: trimmed,
+        description: "",
+        position: nextPosition,
+        priority: "medium",
+        startAt: localStartAt,
+        dueAt: localDueAt,
+      });
     } catch (err) {
-      window.alert(err?.response?.data?.message || "Không thể thêm thẻ.");
+      const message = err?.response?.data?.message || "Không thể thêm thẻ.";
+      window.alert(message);
       setComposerTitle(trimmed);
       setAddingForListId(listId);
+      setComposerStartAt(localStartAt);
+      setComposerDueAt(localDueAt);
+      setComposerRangeError(message);
     }
   };
 
@@ -395,7 +454,12 @@ export function useBoardDetail(currentUser) {
       }
 
       const response = await api.post(`/api/boards/${boardId}/members`, { userId: targetUserId, role: "member" });
-      const created = mapBoardMemberToUi(response.data || {});
+      const row = response.data || {};
+      // POST trả về userId là ObjectId string, không populate — dùng targetUser từ GET /api/users để hiện tên ngay.
+      const created = mapBoardMemberToUi({
+        ...row,
+        userId: typeof row.userId === "object" && row.userId ? row.userId : targetUser,
+      });
       setBoardMembers((prev) => {
         const idx = prev.findIndex((m) => m.userId === created.userId);
         if (idx === -1) return [...prev, created];
@@ -419,6 +483,7 @@ export function useBoardDetail(currentUser) {
     boardMembers, bannerVisible, setBannerVisible,
     selectedCard, setSelectedCard,
     addingForListId, composerTitle, setComposerTitle,
+    composerStartAt, composerDueAt, composerRangeError,
     draggingCardId, dragOverListId, dragOverCardId,
     listComposerOpen, newListTitle, setNewListTitle, newListError,
     inviteOpen, setInviteOpen, inviteEmail, setInviteEmail,
@@ -428,6 +493,7 @@ export function useBoardDetail(currentUser) {
     handleCardDragStart, handleCardDragEnd, handleCardDragOver,
     handleListDragOver, handleListDragLeave, handleListDrop, handleCardDrop,
     openComposer, closeComposer, submitCard,
+    setComposerStartAt, setComposerDueAt, setComposerRangeError,
     openListComposer, closeListComposer, submitNewList,
     handleInviteMember,
     navigate,
