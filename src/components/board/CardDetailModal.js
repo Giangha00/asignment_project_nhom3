@@ -8,6 +8,7 @@ import QuickTaskDateRangeField from "./QuickTaskDateRangeField";
 import CardMembersModal from "./CardMembersModal";
 import CardMembers from "./CardMembers";
 import api from "../../lib/api";
+import { getSocket } from "../../lib/socket";
 import { getPriorityMeta, normalizePriority, PRIORITY_OPTIONS } from "../../lib/cardPriority";
 
 const QUICK_ACTIONS = [
@@ -81,12 +82,46 @@ function CardDetailModal({ card, listName, boardMembers = [], onClose, onSave, o
     loadMembers();
   }, [card?.id]);
 
+  useEffect(() => {
+    if (!card?.id) return;
+    const socket = getSocket();
+    const rowId = (m) => String(m?._id || m?.id || "");
+
+    const loadAssigneesQuiet = async () => {
+      try {
+        const response = await api.get(`/api/cards/${card.id}/assignees`);
+        setCardMembers(Array.isArray(response.data) ? response.data : []);
+      } catch {
+        /* giữ state cũ */
+      }
+    };
+
+    const onCardMemberUpserted = (payload) => {
+      if (String(payload?.cardId || "") !== String(card.id)) return;
+      loadAssigneesQuiet();
+    };
+    const onCardMemberRemoved = (payload) => {
+      const id = rowId(payload);
+      if (!id) return;
+      setCardMembers((prev) => prev.filter((m) => rowId(m) !== id));
+    };
+
+    socket.on("cardMember:upserted", onCardMemberUpserted);
+    socket.on("cardMember:removed", onCardMemberRemoved);
+    return () => {
+      socket.off("cardMember:upserted", onCardMemberUpserted);
+      socket.off("cardMember:removed", onCardMemberRemoved);
+    };
+  }, [card?.id]);
+
   const filteredPriorityOptions = useMemo(() => {
-    const keyword = labelSearch.trim().toLowerCase();
-    if (!keyword) return PRIORITY_OPTIONS;
+    const q = labelSearch.trim().toLowerCase();
+    if (!q) return PRIORITY_OPTIONS;
     return PRIORITY_OPTIONS.filter((option) => {
-      const haystack = `${option.label} ${option.vietnamese}`.toLowerCase();
-      return haystack.includes(keyword);
+      const label = String(option.label || "").toLowerCase();
+      const vi = String(option.vietnamese || "").toLowerCase();
+      const val = String(option.value || "").toLowerCase();
+      return label.includes(q) || vi.includes(q) || val.includes(q);
     });
   }, [labelSearch]);
 
@@ -360,12 +395,7 @@ function CardDetailModal({ card, listName, boardMembers = [], onClose, onSave, o
           boardMembers={boardMembers}
           assignedMembers={cardMembers}
           onClose={() => setMembersModalOpen(false)}
-          onMemberAdded={(newMember) => {
-            setCardMembers((prev) => [...prev, newMember]);
-          }}
-          onMemberRemoved={(memberId) => {
-            setCardMembers((prev) => prev.filter((m) => m.id !== memberId && m._id !== memberId));
-          }}
+          onAssigneesUpdated={setCardMembers}
         />
       )}
     </div>

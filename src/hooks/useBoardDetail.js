@@ -77,6 +77,17 @@ export function useBoardDetail() {
   const [composerRangeError, setComposerRangeError] = useState("");
 
   // ── Load board data ─────────────────────────────────────────────────────────
+  const refreshBoardMembers = useCallback(async () => {
+    if (!boardId) return;
+    try {
+      const membersRes = await api.get(`/api/boards/${boardId}/members`);
+      const rows = Array.isArray(membersRes.data) ? membersRes.data : [];
+      setBoardMembers(rows.map(mapBoardMemberToUi).filter((m) => m.id));
+    } catch {
+      setBoardMembers([]);
+    }
+  }, [boardId]);
+
   const loadBoardData = useCallback(async () => {
     if (!boardId) return;
     setLoading(true);
@@ -90,19 +101,13 @@ export function useBoardDetail() {
       setBoardMeta(boardRes.data || null);
       setLists((Array.isArray(listsRes.data) ? listsRes.data : []).map(mapListToUi));
       setCards((Array.isArray(cardsRes.data) ? cardsRes.data : []).map(mapCardToUi));
-      try {
-        const membersRes = await api.get(`/api/boards/${boardId}/members`);
-        const rows = Array.isArray(membersRes.data) ? membersRes.data : [];
-        setBoardMembers(rows.map(mapBoardMemberToUi).filter((m) => m.id));
-      } catch {
-        setBoardMembers([]);
-      }
+      await refreshBoardMembers();
     } catch (err) {
       setLoadError(err?.response?.data?.message || "Không thể tải dữ liệu bảng.");
     } finally {
       setLoading(false);
     }
-  }, [boardId]);
+  }, [boardId, refreshBoardMembers]);
 
   useEffect(() => { loadBoardData(); }, [loadBoardData]);
 
@@ -155,6 +160,24 @@ export function useBoardDetail() {
     socket.on("list:updated", onListUpdated);
     socket.on("list:deleted", onListDeleted);
 
+    const onBoardMemberUpserted = (payload) => {
+      if (String(payload?.boardId || "") !== boardId) return;
+      refreshBoardMembers();
+    };
+    const onBoardMemberUpdated = (payload) => {
+      if (String(payload?.boardId || "") !== boardId) return;
+      refreshBoardMembers();
+    };
+    const onBoardMemberRemoved = (payload) => {
+      const id = normalizeId(payload);
+      if (!id) return;
+      setBoardMembers((prev) => prev.filter((m) => m.id !== id));
+    };
+
+    socket.on("boardMember:upserted", onBoardMemberUpserted);
+    socket.on("boardMember:updated", onBoardMemberUpdated);
+    socket.on("boardMember:removed", onBoardMemberRemoved);
+
     return () => {
       socket.off("card:created", onCardCreated);
       socket.off("card:updated", onCardUpdated);
@@ -162,9 +185,12 @@ export function useBoardDetail() {
       socket.off("list:created", onListCreated);
       socket.off("list:updated", onListUpdated);
       socket.off("list:deleted", onListDeleted);
+      socket.off("boardMember:upserted", onBoardMemberUpserted);
+      socket.off("boardMember:updated", onBoardMemberUpdated);
+      socket.off("boardMember:removed", onBoardMemberRemoved);
       socket.emit("leave:board", boardId);
     };
-  }, [boardId]);
+  }, [boardId, refreshBoardMembers]);
 
   // ── Computed ────────────────────────────────────────────────────────────────
   const listColumns = useMemo(
@@ -414,7 +440,12 @@ export function useBoardDetail() {
       if (!targetUserId) { setInviteError("Không xác định được người dùng để mời."); return; }
 
       const response = await api.post(`/api/boards/${boardId}/members`, { userId: targetUserId, role: "member" });
-      const created = mapBoardMemberToUi(response.data || {});
+      const row = response.data || {};
+      // POST trả về userId là ObjectId string, không populate — dùng targetUser từ GET /api/users để hiện tên ngay.
+      const created = mapBoardMemberToUi({
+        ...row,
+        userId: typeof row.userId === "object" && row.userId ? row.userId : targetUser,
+      });
       setBoardMembers((prev) => {
         const idx = prev.findIndex((m) => m.userId === created.userId);
         if (idx === -1) return [...prev, created];
