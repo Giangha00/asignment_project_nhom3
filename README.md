@@ -52,3 +52,12 @@ Runs a one-time backfill to set explicit `deletedAt: null` for legacy records in
 
 - Use **soft delete** for business entities and relationships required for audit, restore, and incident recovery.
 - Use **hard delete** only for technical/ephemeral data (for example OTP/session cleanup) that is explicitly approved to be non-recoverable.
+
+## Card Description Rich Text
+
+- `card.description` continues to be stored as a `String`, but card description content may now contain sanitized HTML generated from CKEditor.
+- View mode must always render description through the frontend sanitize layer before using `dangerouslySetInnerHTML`.
+- Existing plain text descriptions remain compatible: the UI converts them to safe paragraph HTML for display/editor initialization.
+- Supported formatting scope: `bold`, `italic`, `paragraph`, `h1/h2/h3`, `bulleted list`, `numbered list`, `link`, and `image`.
+- Security note: only a limited allowlist of tags/attributes is rendered; scripts, event handlers, unsafe URLs, and unsupported markup are stripped before display.
+- Team note: implementation details and security checklist are documented in `docs/card-description-rich-text.md`.
