@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AlignLeft, AlertCircle, Loader2, PenSquare, X } from "lucide-react";
+import { AlignLeft, AlertCircle, Loader2, PenSquare, HelpCircle } from "lucide-react";
 import {
   descriptionToPlainText,
   isDescriptionEffectivelyEmpty,
@@ -8,7 +8,41 @@ import {
   sanitizeDescriptionHtml,
 } from "../../lib/richTextDescription";
 
+// Plugin chuyển ảnh tải lên thành base64 (không cần server)
+class Base64UploadAdapter {
+  constructor(loader) { this.loader = loader; }
+  upload() {
+    return this.loader.file.then(
+      (file) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ default: reader.result });
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        })
+    );
+  }
+  abort() {}
+}
+
+function Base64UploadAdapterPlugin(editor) {
+  editor.plugins.get("FileRepository").createUploadAdapter = (loader) =>
+    new Base64UploadAdapter(loader);
+}
+
+const HEADING_OPTIONS = [
+  { model: "paragraph", title: "Văn bản bình thường", class: "ck-heading_paragraph" },
+  { model: "heading1", view: "h1", title: "Heading 1", class: "ck-heading_heading1" },
+  { model: "heading2", view: "h2", title: "Heading 2", class: "ck-heading_heading2" },
+  { model: "heading3", view: "h3", title: "Heading 3", class: "ck-heading_heading3" },
+  { model: "heading4", view: "h4", title: "Heading 4", class: "ck-heading_heading4" },
+  { model: "heading5", view: "h5", title: "Heading 5", class: "ck-heading_heading5" },
+  { model: "heading6", view: "h6", title: "Heading 6", class: "ck-heading_heading6" },
+];
+
 const EDITOR_CONFIG = {
+  licenseKey: "GPL",
+  extraPlugins: [Base64UploadAdapterPlugin],
   toolbar: {
     items: [
       "heading",
@@ -27,17 +61,10 @@ const EDITOR_CONFIG = {
     ],
     shouldNotGroupWhenFull: true,
   },
-  heading: {
-    options: [
-      { model: "paragraph", title: "Paragraph", class: "ck-heading_paragraph" },
-      { model: "heading1", view: "h1", title: "Heading 1", class: "ck-heading_heading1" },
-      { model: "heading2", view: "h2", title: "Heading 2", class: "ck-heading_heading2" },
-      { model: "heading3", view: "h3", title: "Heading 3", class: "ck-heading_heading3" },
-    ],
-  },
+  heading: { options: HEADING_OPTIONS },
   image: {
     insert: {
-      integrations: ["url"],
+      integrations: ["upload", "url"],
     },
     toolbar: ["imageTextAlternative", "toggleImageCaption", "imageStyle:inline", "imageStyle:block"],
   },
@@ -45,6 +72,7 @@ const EDITOR_CONFIG = {
     addTargetToExternalLinks: true,
     defaultProtocol: "https://",
   },
+  language: "vi",
   placeholder: "Thêm mô tả chi tiết hơn...",
 };
 
@@ -234,7 +262,7 @@ function CardDescription({ initialDescription, onSave }) {
                 />
               </div>
             ) : (
-              <div className="card-description-editor min-h-[220px]" ref={editorHostRef} />
+              <div className="card-description-editor min-h-[420px]" ref={editorHostRef} />
             )}
           </div>
 
@@ -245,7 +273,8 @@ function CardDescription({ initialDescription, onSave }) {
             </div>
           )}
 
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleSave}
@@ -259,10 +288,17 @@ function CardDescription({ initialDescription, onSave }) {
               type="button"
               onClick={handleCancel}
               disabled={isSaving}
-              className="rounded-md p-1.5 text-[#9fadbc] transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
-              aria-label="Hủy"
+              className="rounded-md px-3 py-1.5 text-sm font-semibold text-[#9fadbc] transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
-              <X className="h-4 w-4" />
+              Hủy
+            </button>
+            </div>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.06] px-3 py-1.5 text-sm font-medium text-[#b8c4d0] transition-colors hover:bg-white/[0.1] hover:text-white"
+            >
+              <HelpCircle className="h-4 w-4" />
+              Trợ giúp định dạng
             </button>
           </div>
         </div>

@@ -1,5 +1,20 @@
-const CKEDITOR_SCRIPT_ID = "ckeditor5-classic-build";
-const CKEDITOR_SCRIPT_SRC = "https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js";
+import {
+  ClassicEditor,
+  Essentials,
+  Paragraph,
+  Bold,
+  Italic,
+  Heading,
+  List,
+  Link,
+  Image,
+  ImageToolbar,
+  ImageCaption,
+  ImageStyle,
+  ImageInsert,
+  ImageUpload,
+  Undo,
+} from "ckeditor5";
 const ALLOWED_TAGS = new Set([
   "a",
   "blockquote",
@@ -10,6 +25,9 @@ const ALLOWED_TAGS = new Set([
   "h1",
   "h2",
   "h3",
+  "h4",
+  "h5",
+  "h6",
   "img",
   "li",
   "ol",
@@ -17,7 +35,7 @@ const ALLOWED_TAGS = new Set([
   "strong",
   "ul",
 ]);
-const BLOCK_TAGS = new Set(["blockquote", "figure", "h1", "h2", "h3", "li", "ol", "p", "ul"]);
+const BLOCK_TAGS = new Set(["blockquote", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "li", "ol", "p", "ul"]);
 const URL_PROTOCOLS = ["http:", "https:", "mailto:", "tel:"];
 
 function escapeHtml(value = "") {
@@ -159,30 +177,24 @@ export function isDescriptionEffectivelyEmpty(value = "") {
 }
 
 export function loadCkeditorCloud() {
-  if (window.ClassicEditor) {
-    return Promise.resolve(window.ClassicEditor);
-  }
+  class LocalClassicEditor extends ClassicEditor {}
 
-  return new Promise((resolve, reject) => {
-    const existingScript = document.getElementById(CKEDITOR_SCRIPT_ID);
-    if (existingScript) {
-      existingScript.addEventListener("load", () => resolve(window.ClassicEditor), { once: true });
-      existingScript.addEventListener("error", () => reject(new Error("Không thể tải CKEditor.")), { once: true });
-      return;
-    }
+  LocalClassicEditor.builtinPlugins = [
+    Essentials,
+    Paragraph,
+    Bold,
+    Italic,
+    Heading,
+    List,
+    Link,
+    Image,
+    ImageToolbar,
+    ImageCaption,
+    ImageStyle,
+    ImageInsert,
+    ImageUpload,
+    Undo,
+  ];
 
-    const script = document.createElement("script");
-    script.id = CKEDITOR_SCRIPT_ID;
-    script.src = CKEDITOR_SCRIPT_SRC;
-    script.async = true;
-    script.onload = () => {
-      if (window.ClassicEditor) {
-        resolve(window.ClassicEditor);
-        return;
-      }
-      reject(new Error("CKEditor không sẵn sàng sau khi tải script."));
-    };
-    script.onerror = () => reject(new Error("Không thể tải CKEditor từ CDN."));
-    document.head.appendChild(script);
-  });
+  return Promise.resolve(LocalClassicEditor);
 }

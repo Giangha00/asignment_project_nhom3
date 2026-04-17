@@ -1,17 +1,18 @@
 import React from "react";
-import { X } from "lucide-react";
+import { X, Plus, Tag, Clock, CheckSquare, Paperclip } from "lucide-react";
 import CardModalHeader from "./CardModalHeader";
 import CardDescription from "./CardDescription";
 import CardActivity from "./CardActivity";
 import CardSideActions from "./CardSideActions";
 
-/**
- * Modal chi tiết thẻ - Đã được bóc tách thành các module nhỏ:
- * - CardModalHeader: Tiêu đề và danh sách
- * - CardDescription: Phần mô tả
- * - CardActivity: Bình luận và hoạt động
- * - CardSideActions: Các nút chức năng và xóa
- */
+const QUICK_ACTIONS = [
+  { icon: <Plus className="h-3.5 w-3.5" />, label: "Thêm" },
+  { icon: <Tag className="h-3.5 w-3.5" />, label: "Nhãn" },
+  { icon: <Clock className="h-3.5 w-3.5" />, label: "Ngày" },
+  { icon: <CheckSquare className="h-3.5 w-3.5" />, label: "Việc cần làm" },
+  { icon: <Paperclip className="h-3.5 w-3.5" />, label: "Đính kèm" },
+];
+
 function CardDetailModal({ card, listName, onClose, onSave, onDelete }) {
   if (!card) return null;
 
@@ -21,7 +22,7 @@ function CardDetailModal({ card, listName, onClose, onSave, onDelete }) {
       onClick={onClose}
     >
       <div 
-        className="relative w-full max-w-3xl rounded-2xl bg-[#323940] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5 flex flex-col sm:block" 
+        className="relative w-full max-w-5xl rounded-2xl bg-[#323940] shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/5" 
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
@@ -41,25 +42,36 @@ function CardDetailModal({ card, listName, onClose, onSave, onDelete }) {
           onSave={onSave} 
         />
 
-        {/* 2. Main Content & Sidebar */}
-        <div className="flex flex-col sm:flex-row gap-8 px-6 pb-10 pt-4">
+        {/* 2. Inline Quick Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b border-white/5">
+          {QUICK_ACTIONS.map(({ icon, label }) => (
+            <button
+              key={label}
+              type="button"
+              className="flex items-center gap-1.5 rounded-md bg-[#3d454c] px-3 py-1.5 text-sm text-[#dee4ea] hover:bg-[#4a535c] transition-colors"
+            >
+              <span className="text-[#9fadbc]">{icon}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* 3. Two-column: Description (left) + Activity (right) */}
+        <div className="flex flex-col sm:flex-row gap-6 px-6 pb-10 pt-5">
           
-          {/* Main Body (Description & Activity) */}
-          <div className="min-w-0 flex-1 space-y-10">
-            
+          {/* Left Column: Description */}
+          <div className="min-w-0 flex-1">
             <CardDescription 
               initialDescription={card.description} 
               onSave={onSave} 
             />
-
-            <div className="border-t border-white/5 pt-8">
-              <CardActivity cardId={card.id} />
-            </div>
-
           </div>
 
-          {/* Sidebar Actions */}
-          <CardSideActions onDelete={onDelete} />
+          {/* Right Column: Activity/Comments only */}
+          <div className="flex flex-col gap-4 sm:w-80 shrink-0">
+            <CardActivity cardId={card.id} />
+            <CardSideActions onDelete={onDelete} />
+          </div>
 
         </div>
       </div>

@@ -9,6 +9,70 @@
    CKEditor dark theme — force override mọi style của CKEditor
    ═══════════════════════════════════════════════════════════ */
 
+.card-description-editor {
+  --ck-color-base-background: #141b22;
+  --ck-color-base-foreground: #1f2833;
+  --ck-color-base-border: rgba(255, 255, 255, 0.12);
+  --ck-color-toolbar-background: #1e2530;
+  --ck-color-toolbar-border: rgba(255, 255, 255, 0.09);
+  --ck-color-text: #dde4ec;
+  --ck-color-input-background: #1b2024;
+  --ck-color-input-text: #dde4ec;
+  --ck-color-input-border: rgba(255, 255, 255, 0.16);
+  --ck-color-focus-border: #579dff;
+  --ck-color-focus-outer-shadow: 0 0 0 2px rgba(87, 157, 255, 0.25);
+  --ck-color-button-default-background: transparent;
+  --ck-color-button-default-hover-background: rgba(87, 157, 255, 0.18);
+  --ck-color-button-default-active-background: rgba(87, 157, 255, 0.28);
+  --ck-color-button-on-background: rgba(87, 157, 255, 0.28);
+  --ck-color-button-on-color: #dbe9ff;
+  --ck-color-link-default: #7cc4ff;
+}
+
+/* Hard override for CKEditor local build to prevent pale text on some themes/builds. */
+.ck.ck-editor__editable,
+.ck.ck-content,
+.ck.ck-editor__main > .ck-editor__editable {
+  background: #141b22 !important;
+  color: #f3f7ff !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #f3f7ff !important;
+}
+
+.ck.ck-editor__editable p,
+.ck.ck-editor__editable li,
+.ck.ck-editor__editable span,
+.ck.ck-editor__editable strong,
+.ck.ck-editor__editable em,
+.ck.ck-editor__editable h1,
+.ck.ck-editor__editable h2,
+.ck.ck-editor__editable h3,
+.ck.ck-editor__editable h4,
+.ck.ck-editor__editable h5,
+.ck.ck-editor__editable h6 {
+  color: #f3f7ff !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #f3f7ff !important;
+  font-weight: 600 !important;
+}
+
+.ck.ck-editor__editable .ck-placeholder::before {
+  color: #8ea0b3 !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #8ea0b3 !important;
+}
+
+.card-description-editor .ck.ck-editor {
+  border-radius: 10px;
+  overflow: visible;
+}
+
+.card-description-editor .ck.ck-editor__main > .ck-editor__editable {
+  min-height: 400px !important;
+  background-color: #141b22 !important;
+  color: #dde4ec !important;
+}
+
 /* -- Toolbar -- */
 .card-description-editor .ck-editor .ck-toolbar,
 .card-description-editor .ck-editor .ck-toolbar__items,
@@ -65,17 +129,21 @@
 .card-description-editor .ck-editor__main .ck-editor__editable,
 .card-description-editor .ck-editor__main .ck-content,
 .card-description-editor .ck.ck-content {
-  min-height: 200px !important;
+  min-height: 400px !important;
   background-color: #141b22 !important;
   background-image: none !important;
-  color: #dde4ec !important;
+  color: #f1f5fb !important;
   border: 1px solid rgba(255,255,255,0.1) !important;
   border-radius: 10px !important;
   padding: 12px 14px !important;
   box-shadow: none !important;
   font-size: 14px !important;
   line-height: 1.7 !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
+  text-shadow: none !important;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  caret-color: #f1f5fb !important;
 }
 .card-description-editor .ck-editor__main .ck-editor__editable:focus,
 .card-description-editor .ck-editor__main .ck-editor__editable.ck-focused,
@@ -92,23 +160,28 @@
 .card-description-editor .ck-content strong,
 .card-description-editor .ck-content em,
 .card-description-editor .ck-content a {
-  color: #dde4ec !important;
+  color: #f1f5fb !important;
+  opacity: 1 !important;
 }
 
 .card-description-editor .ck-content p,
 .card-description-editor .ck-content li,
 .card-description-editor .ck-content span {
-  font-weight: 500 !important;
+  font-weight: 600 !important;
 }
 .card-description-editor .ck-content h1,
 .card-description-editor .ck-content h2,
-.card-description-editor .ck-content h3 {
+.card-description-editor .ck-content h3,
+.card-description-editor .ck-content h4,
+.card-description-editor .ck-content h5,
+.card-description-editor .ck-content h6 {
   color: #f0f4f8 !important;
   font-weight: 700 !important;
 }
 .card-description-editor .ck-content a {
   color: #7cc4ff !important;
   text-decoration: underline !important;
+  opacity: 1 !important;
 }
 .card-description-editor .ck-content blockquote {
   color: #9fb3c8 !important;
@@ -126,24 +199,54 @@
 }
 
 /* -- Dropdown panels & lists -- */
-.card-description-editor .ck-dropdown__panel,
-.card-description-editor .ck-balloon-panel {
+.ck-dropdown__panel,
+.ck-balloon-panel {
   background-color: #1e2530 !important;
   border: 1px solid rgba(255,255,255,0.12) !important;
   border-radius: 10px !important;
   box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+  z-index: 9999 !important;
 }
-.card-description-editor .ck-list {
+.ck-list {
   background-color: #1e2530 !important;
 }
-.card-description-editor .ck-list__item .ck-button {
+.ck-dropdown__panel .ck-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+.ck.ck-heading-dropdown .ck-dropdown__panel {
+  min-width: 240px;
+}
+.ck-list__item .ck-button {
   color: #c4cfda !important;
 }
-.card-description-editor .ck-list__item .ck-button:hover,
-.card-description-editor .ck-list__item .ck-button.ck-on {
+.ck-list__item .ck-button:hover,
+.ck-list__item .ck-button.ck-on {
   background-color: rgba(87,157,255,0.18) !important;
   color: #fff !important;
   border-radius: 6px !important;
+}
+
+/* Make Heading 1..6 always readable (not tiny/faded like native preview). */
+.ck.ck-heading-dropdown .ck-list .ck-button,
+.ck.ck-heading-dropdown .ck-list .ck-button .ck-button__label {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  opacity: 1 !important;
+}
+
+.ck.ck-heading-dropdown .ck-list .ck-button {
+  min-height: 36px;
+  padding: 7px 10px !important;
+}
+
+/* Reset list markers in CKEditor UI panels (heading dropdown, menus, etc.) */
+.ck.ck-reset_all ul,
+.ck.ck-reset_all ol {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 /* Inputs trong popup (link/image) de text dam va ro hon */
@@ -182,7 +285,10 @@
 
 .card-rich-text h1,
 .card-rich-text h2,
-.card-rich-text h3 {
+.card-rich-text h3,
+.card-rich-text h4,
+.card-rich-text h5,
+.card-rich-text h6 {
   color: #f5fbff;
   font-weight: 700;
   line-height: 1.25;
@@ -199,6 +305,18 @@
 
 .card-rich-text h3 {
   font-size: 1.125rem;
+}
+
+.card-rich-text h4 {
+  font-size: 1rem;
+}
+
+.card-rich-text h5 {
+  font-size: 0.925rem;
+}
+
+.card-rich-text h6 {
+  font-size: 0.875rem;
 }
 
 .card-rich-text ul,
@@ -277,7 +395,11 @@
 
 .description-editor-shell {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: #1f2329 !important;
+  box-shadow: none !important;
 }
 
 .description-editor-shell::before {
@@ -290,13 +412,14 @@
   border-radius: 999px;
   background: radial-gradient(circle, rgba(124, 196, 255, 0.2) 0%, rgba(124, 196, 255, 0) 68%);
   pointer-events: none;
+  display: none;
 }
 
 @media (max-width: 768px) {
   .card-description-editor .ck-editor__main .ck-editor__editable,
   .card-description-editor .ck-editor__main .ck-content,
   .card-description-editor .ck.ck-content {
-    min-height: 170px !important;
+    min-height: 300px !important;
     padding: 10px 12px !important;
   }
 
