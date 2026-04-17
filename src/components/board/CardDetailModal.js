@@ -8,6 +8,7 @@ import QuickTaskDateRangeField from "./QuickTaskDateRangeField";
 import CardMembersModal from "./CardMembersModal";
 import CardMembers from "./CardMembers";
 import api from "../../lib/api";
+import { getSocket } from "../../lib/socket";
 
 const QUICK_ACTIONS = [
   { icon: <Users className="h-3.5 w-3.5" />, label: "Thành viên", action: "members" },
@@ -55,6 +56,38 @@ function CardDetailModal({ card, listName, boardMembers = [], onClose, onSave, o
       }
     };
     loadMembers();
+  }, [card?.id]);
+
+  useEffect(() => {
+    if (!card?.id) return;
+    const socket = getSocket();
+    const rowId = (m) => String(m?._id || m?.id || "");
+
+    const loadAssigneesQuiet = async () => {
+      try {
+        const response = await api.get(`/api/cards/${card.id}/assignees`);
+        setCardMembers(Array.isArray(response.data) ? response.data : []);
+      } catch {
+        /* giữ state cũ */
+      }
+    };
+
+    const onCardMemberUpserted = (payload) => {
+      if (String(payload?.cardId || "") !== String(card.id)) return;
+      loadAssigneesQuiet();
+    };
+    const onCardMemberRemoved = (payload) => {
+      const id = rowId(payload);
+      if (!id) return;
+      setCardMembers((prev) => prev.filter((m) => rowId(m) !== id));
+    };
+
+    socket.on("cardMember:upserted", onCardMemberUpserted);
+    socket.on("cardMember:removed", onCardMemberRemoved);
+    return () => {
+      socket.off("cardMember:upserted", onCardMemberUpserted);
+      socket.off("cardMember:removed", onCardMemberRemoved);
+    };
   }, [card?.id]);
 
   if (!card) return null;
@@ -192,12 +225,7 @@ function CardDetailModal({ card, listName, boardMembers = [], onClose, onSave, o
           boardMembers={boardMembers}
           assignedMembers={cardMembers}
           onClose={() => setMembersModalOpen(false)}
-          onMemberAdded={(newMember) => {
-            setCardMembers((prev) => [...prev, newMember]);
-          }}
-          onMemberRemoved={(memberId) => {
-            setCardMembers((prev) => prev.filter((m) => m.id !== memberId && m._id !== memberId));
-          }}
+          onAssigneesUpdated={setCardMembers}
         />
       )}
     </div>
