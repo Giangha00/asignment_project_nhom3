@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import { getSocket } from "../lib/socket";
 import { validateDateRange } from "../lib/dateRange";
+import { normalizePriority } from "../lib/cardPriority";
 
 const DND_MIME = "application/json";
 
@@ -20,6 +21,7 @@ function mapCardToUi(card) {
     listId: String(card.listId || ""),
     title: card.title || "",
     description: card.description || "",
+    priority: normalizePriority(card.priority),
     startAt: card.startAt || null,
     dueAt: card.dueAt || null,
     position: card.position ?? 0,
@@ -389,6 +391,7 @@ export function useBoardDetail() {
         title: trimmed,
         description: "",
         position: nextPosition,
+        priority: "medium",
         startAt: localStartAt,
         dueAt: localDueAt,
       });

@@ -5,7 +5,7 @@ import axios from "axios";
  * khi origin frontend khác port với API — cần CORS `credentials: true` phía server.
  */
 const api = axios.create({
-  baseURL: "http://localhost:4000",
+  baseURL: process.env.REACT_APP_API_URL || "http://localhost:4000",
   withCredentials: true,
 });
 
