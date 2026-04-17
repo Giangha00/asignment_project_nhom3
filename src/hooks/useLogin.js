@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../lib/api";
+import { setSocketAuthToken } from "../lib/socket";
 
 export function useLogin({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
@@ -26,8 +27,12 @@ export function useLogin({ onLoginSuccess }) {
         password,
       });
       const user = response.data?.user;
+      const token = response.data?.token;
       if (!user) throw new Error("Không nhận được thông tin người dùng từ máy chủ.");
-      if (typeof onLoginSuccess === "function") onLoginSuccess({ user });
+      if (token) {
+        setSocketAuthToken(token);
+      }
+      if (typeof onLoginSuccess === "function") onLoginSuccess({ user, token });
       navigate("/home");
     } catch (err) {
       const apiError = err.response?.data?.error || err.response?.data?.message;

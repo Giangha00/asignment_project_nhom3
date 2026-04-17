@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../lib/api";
-import { getSocket } from "../lib/socket";
+import { extractUserId } from "../lib/ids";
+import { notify } from "../lib/notify";
+import { ensureSocketConnected, getSocket } from "../lib/socket";
 import { validateDateRange } from "../lib/dateRange";
 import { normalizePriority } from "../lib/cardPriority";
 
@@ -41,9 +43,10 @@ function mapBoardMemberToUi(member) {
   };
 }
 
-export function useBoardDetail() {
+export function useBoardDetail(currentUser) {
   const { boardId: boardIdParam, workspaceId: workspaceIdParam } = useParams();
   const navigate = useNavigate();
+  const myUserId = extractUserId(currentUser);
 
   const boardId = boardIdParam ? decodeURIComponent(boardIdParam) : "";
   const workspaceId = workspaceIdParam ? decodeURIComponent(workspaceIdParam) : "";
@@ -114,8 +117,7 @@ export function useBoardDetail() {
   // ── Socket realtime ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!boardId) return;
-    const socket = getSocket();
-    socket.emit("join:board", boardId);
+    let cancelled = false;
 
     const onCardCreated = (payload) => {
       if (String(payload?.boardId) !== boardId) return;
@@ -153,13 +155,6 @@ export function useBoardDetail() {
       setCards((prev) => prev.filter((c) => c.listId !== id));
     };
 
-    socket.on("card:created", onCardCreated);
-    socket.on("card:updated", onCardUpdated);
-    socket.on("card:deleted", onCardDeleted);
-    socket.on("list:created", onListCreated);
-    socket.on("list:updated", onListUpdated);
-    socket.on("list:deleted", onListDeleted);
-
     const onBoardMemberUpserted = (payload) => {
       if (String(payload?.boardId || "") !== boardId) return;
       refreshBoardMembers();
@@ -174,11 +169,26 @@ export function useBoardDetail() {
       setBoardMembers((prev) => prev.filter((m) => m.id !== id));
     };
 
-    socket.on("boardMember:upserted", onBoardMemberUpserted);
-    socket.on("boardMember:updated", onBoardMemberUpdated);
-    socket.on("boardMember:removed", onBoardMemberRemoved);
+    (async () => {
+      const socket = await ensureSocketConnected();
+      if (cancelled || !socket) return;
+      socket.emit("join:board", boardId);
+
+      socket.on("card:created", onCardCreated);
+      socket.on("card:updated", onCardUpdated);
+      socket.on("card:deleted", onCardDeleted);
+      socket.on("list:created", onListCreated);
+      socket.on("list:updated", onListUpdated);
+      socket.on("list:deleted", onListDeleted);
+      socket.on("boardMember:upserted", onBoardMemberUpserted);
+      socket.on("boardMember:updated", onBoardMemberUpdated);
+      socket.on("boardMember:removed", onBoardMemberRemoved);
+    })();
 
     return () => {
+      cancelled = true;
+      const socket = getSocket();
+      if (!socket) return;
       socket.off("card:created", onCardCreated);
       socket.off("card:updated", onCardUpdated);
       socket.off("card:deleted", onCardDeleted);
@@ -434,10 +444,18 @@ export function useBoardDetail() {
       const usersRes = await api.get("/api/users");
       const users = Array.isArray(usersRes.data) ? usersRes.data : [];
       const targetUser = users.find((u) => String(u?.email || "").toLowerCase() === email);
-      if (!targetUser) { setInviteError("Không tìm thấy người dùng với email này."); return; }
+      if (!targetUser) {
+        setInviteError("Không tìm thấy người dùng với email này.");
+        notify.error("Không tìm thấy người dùng với email này.");
+        return;
+      }
 
       const targetUserId = String(targetUser?._id || targetUser?.id || "");
-      if (!targetUserId) { setInviteError("Không xác định được người dùng để mời."); return; }
+      if (!targetUserId) {
+        setInviteError("Không xác định được người dùng để mời.");
+        notify.error("Không xác định được người dùng để mời.");
+        return;
+      }
 
       const response = await api.post(`/api/boards/${boardId}/members`, { userId: targetUserId, role: "member" });
       const row = response.data || {};
@@ -456,7 +474,9 @@ export function useBoardDetail() {
       setInviteSuccess("Đã mời thành viên vào bảng.");
       setInviteEmail("");
     } catch (err) {
-      setInviteError(err?.response?.data?.message || "Không thể mời thành viên.");
+      const msg = err?.response?.data?.message || "Không thể mời thành viên.";
+      setInviteError(msg);
+      notify.error(msg);
     } finally {
       setInviteLoading(false);
     }

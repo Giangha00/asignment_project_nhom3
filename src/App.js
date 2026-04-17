@@ -7,6 +7,9 @@ import ResetPassword from "./page/authen/ResetPassword";
 import Home from "./page/home/Home";
 import BoardDetail from "./page/board/BoardDetail";
 import api from "./lib/api";
+import { setSocketAuthToken } from "./lib/socket";
+import { NotificationProvider } from "./context/NotificationContext";
+import { UserSocketNotificationBridge } from "./components/UserSocketNotificationBridge";
 
 import "./App.css";
 
@@ -16,9 +19,12 @@ import "./App.css";
  * - Khởi động: GET /api/auth/session (cookie JWT) → có user thì coi như đã đăng nhập.
  * - currentUser: dùng cho Home, header; null = chưa đăng nhập.
  * - Đăng xuất: POST /api/auth/logout + xóa state (cookie được server clear).
+ * - NotificationProvider: state thông báo chuông dùng chung Home + BoardDetail.
  */
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
+  /** JWT từ session/login — dùng đồng bộ socket trước khi Bridge subscribe (realtime). */
+  const [sessionToken, setSessionToken] = useState(null);
   const [pendingResetEmail, setPendingResetEmail] = useState("");
   const [authReady, setAuthReady] = useState(false);
 
@@ -29,10 +35,19 @@ function App() {
     const bootstrapSession = async () => {
       try {
         const response = await api.get("/api/auth/session");
+        const token = response.data?.token;
+        if (token) {
+          setSocketAuthToken(token);
+          setSessionToken(token);
+        } else {
+          setSessionToken(null);
+        }
         if (!cancelled) {
           setCurrentUser(response.data?.user || null);
         }
       } catch {
+        setSocketAuthToken(null);
+        setSessionToken(null);
         if (!cancelled) {
           setCurrentUser(null);
         }
@@ -53,7 +68,13 @@ function App() {
   const isAuthenticated = Boolean(currentUser);
 
   /** Sau login thành công: cập nhật user trong memory (cookie đã được server set khi POST /login). */
-  const handleLoginSuccess = ({ user }) => {
+  const handleLoginSuccess = ({ user, token }) => {
+    if (token) {
+      setSocketAuthToken(token);
+      setSessionToken(token);
+    } else {
+      setSessionToken(null);
+    }
     setCurrentUser(user || null);
   };
 
@@ -63,6 +84,8 @@ function App() {
     } catch {
       // Clear local auth state even if the cookie was already invalid.
     }
+    setSocketAuthToken(null);
+    setSessionToken(null);
     setCurrentUser(null);
     setPendingResetEmail("");
   };
@@ -76,6 +99,13 @@ function App() {
   }
 
   return (
+    <NotificationProvider>
+    {isAuthenticated && currentUser ? (
+      <UserSocketNotificationBridge
+        currentUser={currentUser}
+        sessionToken={sessionToken}
+      />
+    ) : null}
     <Routes>
       <Route
         path="/"
@@ -131,6 +161,7 @@ function App() {
         element={<Navigate to={isAuthenticated ? "/home" : "/"} replace />}
       />
     </Routes>
+    </NotificationProvider>
   );
 }
 

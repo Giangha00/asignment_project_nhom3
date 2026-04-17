@@ -8,7 +8,7 @@ import QuickTaskDateRangeField from "./QuickTaskDateRangeField";
 import CardMembersModal from "./CardMembersModal";
 import CardMembers from "./CardMembers";
 import api from "../../lib/api";
-import { getSocket } from "../../lib/socket";
+import { ensureSocketConnected, getSocket } from "../../lib/socket";
 import { getPriorityMeta, normalizePriority, PRIORITY_OPTIONS } from "../../lib/cardPriority";
 
 const QUICK_ACTIONS = [
@@ -84,7 +84,7 @@ function CardDetailModal({ card, listName, boardMembers = [], onClose, onSave, o
 
   useEffect(() => {
     if (!card?.id) return;
-    const socket = getSocket();
+    let cancelled = false;
     const rowId = (m) => String(m?._id || m?.id || "");
 
     const loadAssigneesQuiet = async () => {
@@ -106,9 +106,17 @@ function CardDetailModal({ card, listName, boardMembers = [], onClose, onSave, o
       setCardMembers((prev) => prev.filter((m) => rowId(m) !== id));
     };
 
-    socket.on("cardMember:upserted", onCardMemberUpserted);
-    socket.on("cardMember:removed", onCardMemberRemoved);
+    (async () => {
+      const socket = await ensureSocketConnected();
+      if (cancelled || !socket) return;
+      socket.on("cardMember:upserted", onCardMemberUpserted);
+      socket.on("cardMember:removed", onCardMemberRemoved);
+    })();
+
     return () => {
+      cancelled = true;
+      const socket = getSocket();
+      if (!socket) return;
       socket.off("cardMember:upserted", onCardMemberUpserted);
       socket.off("cardMember:removed", onCardMemberRemoved);
     };

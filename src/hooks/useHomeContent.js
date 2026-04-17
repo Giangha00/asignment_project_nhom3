@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { notify } from "../lib/notify";
 
+/** Form trang chủ: mời nhanh — chỉ Toastify khi lỗi; thành công không toast (theo yêu cầu UX). */
 export function useHomeContent({ workspaces = [], onCreateWorkspace, onCreateBoard, onInviteMember }) {
   const [workspaceName, setWorkspaceName] = useState("");
   const [inviteByWorkspace, setInviteByWorkspace] = useState({});
@@ -50,7 +52,7 @@ export function useHomeContent({ workspaces = [], onCreateWorkspace, onCreateBoa
 
     Promise.resolve(onInviteMember(workspaceId, email)).then((result) => {
       if (result?.ok === false && result.message) {
-        window.alert(result.message);
+        notify.error(result.message);
         return;
       }
       setInviteByWorkspace((prev) => ({ ...prev, [workspaceId]: "" }));

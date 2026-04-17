@@ -1,10 +1,12 @@
 /**
- * Màn "Người cộng tác": danh sách thành viên, lọc tên, mời bằng email (gọi onInviteMember → API trong useWorkspaceShell).
- * Mời: loading trên nút "Gửi lời mời", lỗi trong popover, thành công hiện toast ngắn dưới nút mở form.
+ * Màn "Người cộng tác": danh sách thành viên, lọc tên, mời bằng email (onInviteMember → useWorkspaceShell).
+ * Thành công: đóng form, không toast (thông báo cho người được mời qua panel chuông / đồng bộ API).
+ * Lỗi: trong popover + notify.error (Toastify).
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { UserPlus, X } from "lucide-react";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import { notify } from "../lib/notify";
 import MemberRow from "./members/MemberRow";
 
 /** Số hiển thị kiểu "đang có / tối đa" (vd 4/10); sau có thể lấy giới hạn thật từ API. */
@@ -34,8 +36,6 @@ function ContentMembers({
   // Trạng thái gửi lời mời: chặn double-submit, đổi nhãn nút "Đang gửi…"
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState("");
-  // Thông báo thành công sau khi đóng popover (tự ẩn sau 5s)
-  const [inviteToast, setInviteToast] = useState("");
   const [memberActionMessage, setMemberActionMessage] = useState("");
   const [removingMemberId, setRemovingMemberId] = useState(null);
   const inviteRef = useRef(null);
@@ -65,16 +65,9 @@ function ContentMembers({
   // Đổi workspace → xóa thông báo cũ để không lẫn giữa các không gian làm việc
   useEffect(() => {
     setInviteError("");
-    setInviteToast("");
     setMemberActionMessage("");
     setRemovingMemberId(null);
   }, [workspace?.id]);
-
-  useEffect(() => {
-    if (!inviteToast) return undefined;
-    const t = window.setTimeout(() => setInviteToast(""), 5000);
-    return () => window.clearTimeout(t);
-  }, [inviteToast]);
 
   useEffect(() => {
     if (!memberActionMessage) return undefined;
@@ -161,14 +154,16 @@ function ContentMembers({
     try {
       const result = await Promise.resolve(onInviteMember(workspace.id, trimmed));
       if (result && result.ok === false) {
-        setInviteError(result.message || "Không thể gửi lời mời.");
+        const msg = result.message || "Không thể gửi lời mời.";
+        setInviteError(msg);
+        notify.error(msg);
         return;
       }
-      setInviteToast(result?.message || "Đã mời thành viên thành công.");
       setEmail("");
       setInviteOpen(false);
     } catch {
       setInviteError("Đã xảy ra lỗi. Vui lòng thử lại.");
+      notify.error("Đã xảy ra lỗi. Vui lòng thử lại.");
     } finally {
       setInviteLoading(false);
     }
@@ -313,12 +308,6 @@ function ContentMembers({
               />
               Mời các thành viên Không gian làm việc
             </button>
-            {/* Thông báo thành công (popover đã đóng nên hiện ở đây, không nằm trong dialog) */}
-            {inviteToast && (
-              <p className="absolute right-0 top-full z-10 mt-1 max-w-[min(100vw-2rem,22rem)] text-right text-xs text-[#8fffb3]">
-                {inviteToast}
-              </p>
-            )}
             {inviteOpen && (
               <div
                 ref={inviteRef}

@@ -1,8 +1,11 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useHeader } from "../hooks/useHeader";
 import MemberAvatar from "./members/MemberAvatar";
+import NotificationPanel from "./notifications/NotificationPanel";
+import { useNotifications } from "../context/NotificationContext";
 
+/** Thanh điều hướng: chuông + badge unreadCount + panel dropdown (NotificationPanel). */
 const Header = ({ onCreateBoard, backTo, trialBadge, user, onLogout }) => {
   const {
     searchText,
@@ -23,6 +26,11 @@ const Header = ({ onCreateBoard, backTo, trialBadge, user, onLogout }) => {
     handleOptionSelect,
     handleLogout,
   } = useHeader({ onCreateBoard, onLogout });
+
+  const { unreadCount } = useNotifications();
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  /** Bọc chuông + panel để click-outside không đóng khi bấm vào chuông. */
+  const notificationBoundaryRef = useRef(null);
 
   const displayUser = user || { fullName: "User", initials: "U", email: "" };
 
@@ -133,12 +141,30 @@ const Header = ({ onCreateBoard, backTo, trialBadge, user, onLogout }) => {
             <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
           </svg>
         </button>
-        <button className="p-2 hover:bg-[#3c444d] rounded-full transition text-[#9fadbc] relative">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="-rotate-12">
-            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-          </svg>
-        </button>
+        <div className="relative" ref={notificationBoundaryRef}>
+          <button
+            type="button"
+            aria-label="Thông báo"
+            aria-expanded={notificationOpen}
+            onClick={() => setNotificationOpen((o) => !o)}
+            className="relative p-2 hover:bg-[#3c444d] rounded-full transition text-[#9fadbc]"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="-rotate-12">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="absolute right-1 top-1 min-w-[16px] rounded-full bg-[#579dff] px-1 text-center text-[10px] font-bold leading-4 text-[#1d2125]">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+          <NotificationPanel
+            open={notificationOpen}
+            onClose={() => setNotificationOpen(false)}
+            boundaryRef={notificationBoundaryRef}
+          />
+        </div>
         <button className="p-2 hover:bg-[#3c444d] rounded-full transition text-[#9fadbc]">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" />
