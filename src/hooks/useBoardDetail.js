@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../lib/api";
 import { getSocket } from "../lib/socket";
+import { validateDateRange } from "../lib/dateRange";
 
 const DND_MIME = "application/json";
 
@@ -19,6 +20,8 @@ function mapCardToUi(card) {
     listId: String(card.listId || ""),
     title: card.title || "",
     description: card.description || "",
+    startAt: card.startAt || null,
+    dueAt: card.dueAt || null,
     position: card.position ?? 0,
   };
 }
@@ -67,6 +70,9 @@ export function useBoardDetail() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState("");
   const [inviteSuccess, setInviteSuccess] = useState("");
+  const [composerStartAt, setComposerStartAt] = useState(null);
+  const [composerDueAt, setComposerDueAt] = useState(null);
+  const [composerRangeError, setComposerRangeError] = useState("");
 
   // ── Load board data ─────────────────────────────────────────────────────────
   const loadBoardData = useCallback(async () => {
@@ -169,6 +175,15 @@ export function useBoardDetail() {
 
   // ── Card CRUD ───────────────────────────────────────────────────────────────
   const handleSaveCard = async (card, patch, options = {}) => {
+    const nextStartAt = patch.startAt !== undefined ? patch.startAt : card.startAt;
+    const nextDueAt = patch.dueAt !== undefined ? patch.dueAt : card.dueAt;
+    const rangeValidation = validateDateRange(nextStartAt, nextDueAt);
+    if (!rangeValidation.isValid) {
+      const validationMessage = rangeValidation.error || "Khoảng thời gian không hợp lệ.";
+      if (!options?.silent) window.alert(validationMessage);
+      throw new Error(validationMessage);
+    }
+
     setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, ...patch } : c)));
     setSelectedCard((prev) => (prev?.id === card.id ? { ...prev, ...patch } : prev));
     try {
@@ -311,20 +326,54 @@ export function useBoardDetail() {
   };
 
   // ── Composer ────────────────────────────────────────────────────────────────
-  const openComposer = (listId) => { setAddingForListId(listId); setComposerTitle(""); };
-  const closeComposer = () => { setAddingForListId(null); setComposerTitle(""); };
+  const openComposer = (listId) => {
+    setAddingForListId(listId);
+    setComposerTitle("");
+    setComposerStartAt(null);
+    setComposerDueAt(null);
+    setComposerRangeError("");
+  };
+
+  const closeComposer = () => {
+    setAddingForListId(null);
+    setComposerTitle("");
+    setComposerStartAt(null);
+    setComposerDueAt(null);
+    setComposerRangeError("");
+  };
 
   const submitCard = async (listId) => {
     const trimmed = composerTitle.trim();
     if (!trimmed || !listId || !boardId) return;
+    const localStartAt = composerStartAt;
+    const localDueAt = composerDueAt;
+
+    const rangeValidation = validateDateRange(localStartAt, localDueAt);
+    if (!rangeValidation.isValid) {
+      setComposerRangeError(rangeValidation.error || "Khoảng thời gian không hợp lệ.");
+      return;
+    }
+
     const nextPosition = cards.filter((c) => c.listId === listId).reduce((max, c) => Math.max(max, Number(c.position ?? 0)), -1) + 1;
     closeComposer();
     try {
-      await api.post("/api/cards", { boardId, listId, title: trimmed, description: "", position: nextPosition });
+      await api.post("/api/cards", {
+        boardId,
+        listId,
+        title: trimmed,
+        description: "",
+        position: nextPosition,
+        startAt: localStartAt,
+        dueAt: localDueAt,
+      });
     } catch (err) {
-      window.alert(err?.response?.data?.message || "Không thể thêm thẻ.");
+      const message = err?.response?.data?.message || "Không thể thêm thẻ.";
+      window.alert(message);
       setComposerTitle(trimmed);
       setAddingForListId(listId);
+      setComposerStartAt(localStartAt);
+      setComposerDueAt(localDueAt);
+      setComposerRangeError(message);
     }
   };
 
@@ -384,6 +433,7 @@ export function useBoardDetail() {
     boardMembers, bannerVisible, setBannerVisible,
     selectedCard, setSelectedCard,
     addingForListId, composerTitle, setComposerTitle,
+    composerStartAt, composerDueAt, composerRangeError,
     draggingCardId, dragOverListId, dragOverCardId,
     listComposerOpen, newListTitle, setNewListTitle, newListError,
     inviteOpen, setInviteOpen, inviteEmail, setInviteEmail,
@@ -393,6 +443,7 @@ export function useBoardDetail() {
     handleCardDragStart, handleCardDragEnd, handleCardDragOver,
     handleListDragOver, handleListDragLeave, handleListDrop, handleCardDrop,
     openComposer, closeComposer, submitCard,
+    setComposerStartAt, setComposerDueAt, setComposerRangeError,
     openListComposer, closeListComposer, submitNewList,
     handleInviteMember,
     navigate,

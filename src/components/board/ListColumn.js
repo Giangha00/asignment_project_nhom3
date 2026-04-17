@@ -1,6 +1,7 @@
 import React from "react";
 import { ArrowLeftRight, MoreHorizontal, Plus, SquareArrowOutUpRight, X } from "lucide-react";
 import CardItem from "./CardItem";
+import QuickTaskDateRangeField from "./QuickTaskDateRangeField";
 
 /**
  * Một cột list với header, danh sách cards và composer thêm thẻ.
@@ -12,7 +13,13 @@ function ListColumn({
   dragOverListId,
   addingForListId,
   composerTitle,
+  composerStartAt,
+  composerDueAt,
+  composerRangeError,
   setComposerTitle,
+  setComposerStartAt,
+  setComposerDueAt,
+  setComposerRangeError,
   onCardDragStart,
   onCardDragEnd,
   onCardDragOver,
@@ -94,6 +101,16 @@ function ListColumn({
             placeholder="Nhập tiêu đề thẻ..."
             autoFocus
             className="w-full resize-none rounded-lg border border-[#3c444d] bg-[#22272b] px-3 py-2 text-sm text-[#d1d7e0] placeholder:text-[#6b7785] shadow-sm outline-none focus:border-[#579dff] focus:ring-1 focus:ring-[#579dff]"
+          />
+          <QuickTaskDateRangeField
+            startAt={composerStartAt}
+            dueAt={composerDueAt}
+            error={composerRangeError}
+            onChange={({ startAt, dueAt, error }) => {
+              setComposerStartAt(startAt);
+              setComposerDueAt(dueAt);
+              setComposerRangeError(error || "");
+            }}
           />
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => onSubmitCard(list.id)} className="rounded-md bg-[#579dff] px-3 py-1.5 text-sm font-semibold text-white hover:bg-[#6cabff]">

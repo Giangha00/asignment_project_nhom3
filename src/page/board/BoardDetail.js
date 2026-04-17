@@ -15,6 +15,7 @@ function BoardDetail({ currentUser, onLogout }) {
     boardMembers, bannerVisible, setBannerVisible,
     selectedCard, setSelectedCard,
     addingForListId, composerTitle, setComposerTitle,
+    composerStartAt, composerDueAt, composerRangeError,
     draggingCardId, dragOverListId, dragOverCardId,
     listComposerOpen, newListTitle, setNewListTitle, newListError,
     inviteOpen, setInviteOpen, inviteEmail, setInviteEmail,
@@ -24,6 +25,7 @@ function BoardDetail({ currentUser, onLogout }) {
     handleCardDragStart, handleCardDragEnd, handleCardDragOver,
     handleListDragOver, handleListDragLeave, handleListDrop, handleCardDrop,
     openComposer, closeComposer, submitCard,
+    setComposerStartAt, setComposerDueAt, setComposerRangeError,
     openListComposer, closeListComposer, submitNewList,
     handleInviteMember,
     navigate,
@@ -84,6 +86,7 @@ function BoardDetail({ currentUser, onLogout }) {
         <CardDetailModal
           card={selectedCard}
           listName={selectedCardList?.name || ""}
+          boardMembers={boardMembers}
           onClose={() => setSelectedCard(null)}
           onSave={(patch, options) => handleSaveCard(selectedCard, patch, options)}
           onDelete={() => handleDeleteCard(selectedCard)}
@@ -113,7 +116,13 @@ function BoardDetail({ currentUser, onLogout }) {
                 dragOverListId={dragOverListId}
                 addingForListId={addingForListId}
                 composerTitle={composerTitle}
+                composerStartAt={composerStartAt}
+                composerDueAt={composerDueAt}
+                composerRangeError={composerRangeError}
                 setComposerTitle={setComposerTitle}
+                setComposerStartAt={setComposerStartAt}
+                setComposerDueAt={setComposerDueAt}
+                setComposerRangeError={setComposerRangeError}
                 onCardDragStart={handleCardDragStart}
                 onCardDragEnd={handleCardDragEnd}
                 onCardDragOver={handleCardDragOver}
