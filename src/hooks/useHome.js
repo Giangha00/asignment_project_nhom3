@@ -1,24 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import api from "../lib/api";
 import { useNotifications } from "../context/NotificationContext";
 import {
-  deliverBoardShareFromPayload,
   deliverBoardShareNotification,
 } from "../lib/boardInviteNotification";
 import { extractUserId } from "../lib/ids";
+import {
+  deliverWorkspaceInviteNotification,
+} from "../lib/workspaceInviteNotification";
 import { useWorkspaceShell } from "./useWorkspaceShell";
-import { getSocket } from "../lib/socket";
-
-function initialsFromName(name) {
-  const parts = String(name || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ""}${parts[parts.length - 1][0] || ""}`.toUpperCase();
-}
+import { ensureSocketConnected, getSocket } from "../lib/socket";
 
 export function useHome(currentUser) {
   const { workspaceId: workspaceIdParam, section: sectionParam } = useParams();
@@ -47,73 +39,6 @@ export function useHome(currentUser) {
     upsertWorkspace,
     workspaces,
   } = useWorkspaceShell(currentUser, workspaceIdParam || null);
-
-  /**
-   * Cùng một lời mời workspace có thể tới qua socket và qua effect đồng bộ GET /members sau load trang;
-   * ref giữ rowKey đã xử lý trong phiên để không gọi addNotification hai lần.
-   */
-  const workspaceInviteDeliveredRef = useRef(new Set());
-
-  /**
-   * Chỉ khi user hiện tại là người được mời (target) và có invitedBy: đẩy mục vào panel chuông.
-   * Không bật Toast — chỉ addNotification (Toastify dùng riêng cho lỗi ở màn khác).
-   */
-  const deliverWorkspaceInvite = useCallback(
-    async ({ wid, memberRowId, invitedById, targetUserId }) => {
-      if (!myUserId || !targetUserId || targetUserId !== myUserId) return;
-      if (!invitedById || invitedById === myUserId) return;
-
-      const rowKey = String(memberRowId || `${wid}:${myUserId}`);
-      if (workspaceInviteDeliveredRef.current.has(rowKey)) return;
-
-      let workspaceName =
-        workspaces.find((w) => w.id === wid)?.name || "";
-      if (!workspaceName) {
-        try {
-          const wsRes = await api.get(`/api/workspaces/${wid}`);
-          workspaceName = wsRes.data?.name || "Workspace";
-        } catch {
-          workspaceName = "Workspace";
-        }
-      }
-
-      let inviterName = "Một thành viên";
-      let inviterInitials = "?";
-      try {
-        const usersRes = await api.get("/api/users");
-        const users = Array.isArray(usersRes.data) ? usersRes.data : [];
-        const inviter = users.find(
-          (u) => String(u?._id || u?.id || "") === invitedById,
-        );
-        if (inviter) {
-          inviterName =
-            inviter.fullName ||
-            inviter.name ||
-            inviter.username ||
-            inviterName;
-          inviterInitials = initialsFromName(inviterName);
-        }
-      } catch {
-        // giữ mặc định
-      }
-
-      workspaceInviteDeliveredRef.current.add(rowKey);
-
-      addNotification({
-        kind: "workspace_invite",
-        persistKey: `ws_member:${rowKey}`,
-        actorName: inviterName,
-        actorInitials: inviterInitials,
-        actionLine: "đã thêm bạn vào workspace",
-        targetLabel: workspaceName,
-        targetHref: `/workspace/${encodeURIComponent(wid)}/home`,
-        metaLine: myEmail
-          ? `Tài khoản ${myEmail} vừa được thêm vào không gian làm việc.`
-          : undefined,
-      });
-    },
-    [addNotification, myEmail, myUserId, workspaces],
-  );
 
   useEffect(() => {
     const focus = location.state?.workspaceShellFocus;
@@ -186,7 +111,11 @@ export function useHome(currentUser) {
           const ja = mine.joinedAt ? new Date(mine.joinedAt).getTime() : 0;
           if (!ja || Date.now() - ja > maxAgeMs) continue;
 
-          await deliverWorkspaceInvite({
+          await deliverWorkspaceInviteNotification({
+            addNotification,
+            myUserId,
+            myEmail,
+            workspaces,
             wid,
             memberRowId: String(mine._id || mine.id || ""),
             invitedById,
@@ -202,7 +131,7 @@ export function useHome(currentUser) {
     return () => {
       cancelled = true;
     };
-  }, [workspaceIdsSignature, myUserId, deliverWorkspaceInvite]);
+  }, [workspaceIdsSignature, myUserId, addNotification, myEmail, workspaces]);
 
   /**
    * Đồng bộ thông báo chia sẻ bảng sau load (giống workspace): GET /boards/:id/members,
@@ -269,16 +198,13 @@ export function useHome(currentUser) {
     };
   }, [boardsWorkspaceSignature, myUserId, addNotification, myEmail, workspaces]);
 
-  // Socket: vào phòng từng workspace + từng bảng (để nhận boardMember:upserted khi đang ở Home).
+  // Socket: JWT trước (ensureSocketConnected) — tránh tạo socket vô danh trước khi join user:*.
   useEffect(() => {
-    const socket = getSocket();
+    let cancelled = false;
+
     const workspaceIds = workspaces
       .map((ws) => ws?.id)
       .filter((id) => id && id !== "default-workspace");
-
-    workspaceIds.forEach((workspaceId) => {
-      socket.emit("join:workspace", workspaceId);
-    });
 
     const boardIds = [
       ...new Set(
@@ -289,10 +215,6 @@ export function useHome(currentUser) {
         ),
       ),
     ].filter(Boolean);
-
-    boardIds.forEach((bid) => {
-      socket.emit("join:board", bid);
-    });
 
     const handleBoardCreated = (payload) => {
       const workspaceId = String(payload?.workspaceId || "");
@@ -341,18 +263,11 @@ export function useHome(currentUser) {
     };
 
     // Backend emit khi thêm/cập nhật membership: refresh UI + thử đẩy thông báo panel nếu payload là “bạn được mời”.
-    const handleWorkspaceMemberUpserted = async (payload) => {
+    const handleWorkspaceMemberUpserted = (payload) => {
       const wid = String(payload?.workspaceId || "");
       if (!wid || wid === "default-workspace") return;
 
       refreshWorkspaceMembers(wid);
-
-      await deliverWorkspaceInvite({
-        wid,
-        memberRowId: String(payload?._id || payload?.id || ""),
-        invitedById: extractUserId(payload?.invitedBy),
-        targetUserId: extractUserId(payload?.userId),
-      });
     };
 
     const handleWorkspaceMemberUpdated = (payload) => {
@@ -377,31 +292,36 @@ export function useHome(currentUser) {
       refreshWorkspaceMembers(ws.id);
     };
 
-    const handleBoardMemberUpserted = async (payload) => {
-      await deliverBoardShareFromPayload(payload, {
-        addNotification,
-        myUserId,
-        myEmail,
-        workspaces,
-      });
-    };
+    (async () => {
+      const socket = await ensureSocketConnected();
+      if (cancelled || !socket) return;
 
-    socket.on("board:created", handleBoardCreated);
-    socket.on("board:updated", handleBoardUpdated);
-    socket.on("board:deleted", handleBoardDeleted);
-    socket.on("workspaceMember:upserted", handleWorkspaceMemberUpserted);
-    socket.on("workspaceMember:updated", handleWorkspaceMemberUpdated);
-    socket.on("workspaceMember:removed", handleWorkspaceMemberRemoved);
-    socket.on("boardMember:upserted", handleBoardMemberUpserted);
+      workspaceIds.forEach((workspaceId) => {
+        socket.emit("join:workspace", workspaceId);
+      });
+
+      boardIds.forEach((bid) => {
+        socket.emit("join:board", bid);
+      });
+
+      socket.on("board:created", handleBoardCreated);
+      socket.on("board:updated", handleBoardUpdated);
+      socket.on("board:deleted", handleBoardDeleted);
+      socket.on("workspaceMember:upserted", handleWorkspaceMemberUpserted);
+      socket.on("workspaceMember:updated", handleWorkspaceMemberUpdated);
+      socket.on("workspaceMember:removed", handleWorkspaceMemberRemoved);
+    })();
 
     return () => {
+      cancelled = true;
+      const socket = getSocket();
+      if (!socket) return;
       socket.off("board:created", handleBoardCreated);
       socket.off("board:updated", handleBoardUpdated);
       socket.off("board:deleted", handleBoardDeleted);
       socket.off("workspaceMember:upserted", handleWorkspaceMemberUpserted);
       socket.off("workspaceMember:updated", handleWorkspaceMemberUpdated);
       socket.off("workspaceMember:removed", handleWorkspaceMemberRemoved);
-      socket.off("boardMember:upserted", handleBoardMemberUpserted);
       workspaceIds.forEach((workspaceId) => {
         socket.emit("leave:workspace", workspaceId);
       });
@@ -411,10 +331,6 @@ export function useHome(currentUser) {
     };
   }, [
     addBoardToWorkspace,
-    addNotification,
-    deliverWorkspaceInvite,
-    myEmail,
-    myUserId,
     refreshWorkspaceMembers,
     removeBoardFromWorkspace,
     updateBoardInWorkspace,

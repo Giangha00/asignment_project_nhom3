@@ -6,3 +6,14 @@ export function extractUserId(value) {
   }
   return String(value);
 }
+
+/** So khớp id Mongo/JWT (tránh lệch do hoa thường hoặc kiểu ObjectId). */
+export function normalizeUserId(value) {
+  return extractUserId(value).trim().toLowerCase();
+}
+
+export function idsEqual(a, b) {
+  const x = normalizeUserId(a);
+  const y = normalizeUserId(b);
+  return Boolean(x) && x === y;
+}

@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useNotifications } from "../context/NotificationContext";
 import api from "../lib/api";
 import { extractUserId } from "../lib/ids";
-import { deliverBoardShareFromPayload } from "../lib/boardInviteNotification";
 import { notify } from "../lib/notify";
-import { getSocket } from "../lib/socket";
+import { ensureSocketConnected, getSocket } from "../lib/socket";
 import { validateDateRange } from "../lib/dateRange";
 import { normalizePriority } from "../lib/cardPriority";
 
@@ -48,7 +46,6 @@ function mapBoardMemberToUi(member) {
 export function useBoardDetail(currentUser) {
   const { boardId: boardIdParam, workspaceId: workspaceIdParam } = useParams();
   const navigate = useNavigate();
-  const { addNotification } = useNotifications();
   const myUserId = extractUserId(currentUser);
 
   const boardId = boardIdParam ? decodeURIComponent(boardIdParam) : "";
@@ -120,8 +117,7 @@ export function useBoardDetail(currentUser) {
   // ── Socket realtime ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!boardId) return;
-    const socket = getSocket();
-    socket.emit("join:board", boardId);
+    let cancelled = false;
 
     const onCardCreated = (payload) => {
       if (String(payload?.boardId) !== boardId) return;
@@ -159,13 +155,6 @@ export function useBoardDetail(currentUser) {
       setCards((prev) => prev.filter((c) => c.listId !== id));
     };
 
-    socket.on("card:created", onCardCreated);
-    socket.on("card:updated", onCardUpdated);
-    socket.on("card:deleted", onCardDeleted);
-    socket.on("list:created", onListCreated);
-    socket.on("list:updated", onListUpdated);
-    socket.on("list:deleted", onListDeleted);
-
     const onBoardMemberUpserted = (payload) => {
       if (String(payload?.boardId || "") !== boardId) return;
       refreshBoardMembers();
@@ -180,11 +169,26 @@ export function useBoardDetail(currentUser) {
       setBoardMembers((prev) => prev.filter((m) => m.id !== id));
     };
 
-    socket.on("boardMember:upserted", onBoardMemberUpserted);
-    socket.on("boardMember:updated", onBoardMemberUpdated);
-    socket.on("boardMember:removed", onBoardMemberRemoved);
+    (async () => {
+      const socket = await ensureSocketConnected();
+      if (cancelled || !socket) return;
+      socket.emit("join:board", boardId);
+
+      socket.on("card:created", onCardCreated);
+      socket.on("card:updated", onCardUpdated);
+      socket.on("card:deleted", onCardDeleted);
+      socket.on("list:created", onListCreated);
+      socket.on("list:updated", onListUpdated);
+      socket.on("list:deleted", onListDeleted);
+      socket.on("boardMember:upserted", onBoardMemberUpserted);
+      socket.on("boardMember:updated", onBoardMemberUpdated);
+      socket.on("boardMember:removed", onBoardMemberRemoved);
+    })();
 
     return () => {
+      cancelled = true;
+      const socket = getSocket();
+      if (!socket) return;
       socket.off("card:created", onCardCreated);
       socket.off("card:updated", onCardUpdated);
       socket.off("card:deleted", onCardDeleted);

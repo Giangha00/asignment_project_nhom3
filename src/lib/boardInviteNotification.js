@@ -1,5 +1,5 @@
 import api from "./api";
-import { extractUserId } from "./ids";
+import { extractUserId, idsEqual } from "./ids";
 
 /** Tránh đẩy trùng cùng một bản ghi board member trong phiên (socket + bootstrap + màn BoardDetail). */
 const deliveredBoardMemberKeys = new Set();
@@ -29,7 +29,7 @@ export async function deliverBoardShareNotification({
   targetUserId,
   workspaces,
 }) {
-  if (!myUserId || !targetUserId || targetUserId !== myUserId) return;
+  if (!myUserId || !targetUserId || !idsEqual(targetUserId, myUserId)) return;
 
   const rowKey = String(memberRowId || `${boardId}:${myUserId}`);
   const persistKey = `board_member:${rowKey}`;

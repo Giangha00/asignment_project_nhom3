@@ -8,6 +8,7 @@ const {
   AUTH_COOKIE_NAME,
   authMiddleware,
   buildAuthCookieOptions,
+  readTokenFromRequest,
 } = require("../middleware/auth");
 const { asyncHandler } = require("../utils/asyncHandler");
 
@@ -46,7 +47,9 @@ const session = [
   authMiddleware,
   asyncHandler(async (req, res) => {
     const user = await userService.getMe(req.userId);
-    res.json({ user });
+    /** Cùng JWT với cookie — client dùng cho Socket.io `auth.token` (handshake cookie đôi khi không gửi cross-port). */
+    const token = readTokenFromRequest(req);
+    res.json({ user, token });
   }),
 ];
 

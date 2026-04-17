@@ -1,7 +1,7 @@
 const BoardMember = require("../models/boardMemberModel");
 const Board = require("../models/boardModel");
 const User = require("../models/userModel");
-const { emitToBoard } = require("../utils/socketEmit");
+const { emitToBoard, emitToUser } = require("../utils/socketEmit");
 const { HttpError } = require("../utils/httpError");
 const { assertObjectId } = require("./validation");
 const { isWorkspaceMember, isBoardMember } = require("./accessService");
@@ -42,7 +42,9 @@ async function addBoardMember(app, actorUserId, boardId, body) {
     { $set: { role: role || "member", deletedAt: null } },
     { upsert: true, new: true }
   );
-  emitToBoard(app, boardId, "boardMember:upserted", row.toJSON());
+  const payload = row.toJSON();
+  emitToBoard(app, boardId, "boardMember:upserted", payload);
+  emitToUser(app, targetUserId, "boardMember:upserted", payload);
   return row;
 }
 

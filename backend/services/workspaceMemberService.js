@@ -1,7 +1,7 @@
 const Workspace = require("../models/workSpaceModel");
 const WorkspaceMember = require("../models/workSpaceMemberModel");
 const User = require("../models/userModel");
-const { emitToWorkspace } = require("../utils/socketEmit");
+const { emitToWorkspace, emitToUser } = require("../utils/socketEmit");
 const { HttpError } = require("../utils/httpError");
 const { assertObjectId } = require("./validation");
 const { isWorkspaceMember } = require("./accessService");
@@ -36,7 +36,9 @@ async function addMember(app, actorUserId, workspaceId, body) {
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
-  emitToWorkspace(app, workspaceId, "workspaceMember:upserted", row.toJSON());
+  const payload = row.toJSON();
+  emitToWorkspace(app, workspaceId, "workspaceMember:upserted", payload);
+  emitToUser(app, targetUserId, "workspaceMember:upserted", payload);
   return row;
 }
 

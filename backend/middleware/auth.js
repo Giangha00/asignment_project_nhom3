@@ -52,7 +52,7 @@ function authMiddleware(req, res, next) {
   }
   try {
     const payload = jwt.verify(token, getJwtSecret());
-    req.userId = payload.sub;
+    req.userId = String(payload.sub || "").trim();
     next();
   } catch {
     return res.status(401).json({ error: "Invalid or expired token" });
@@ -63,7 +63,7 @@ function authMiddleware(req, res, next) {
 function signUserToken({ userId, email = "", fullName = "" }) {
   return jwt.sign(
     {
-      sub: userId,
+      sub: String(userId || "").trim(),
       email,
       fullName,
     },
@@ -77,5 +77,6 @@ module.exports = {
   authMiddleware,
   buildAuthCookieOptions,
   getJwtSecret,
+  readTokenFromRequest,
   signUserToken,
 };
