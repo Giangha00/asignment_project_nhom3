@@ -2,6 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../lib/api";
 
+/**
+ * Đăng ký tài khoản mới — POST /api/auth/register.
+ *
+ * Backend (authService.register): tạo User, hash mật khẩu, trả { user, token }
+ * nhưng controller KHÔNG set cookie — user phải vào màn Login để nhận cookie.
+ *
+ * Sau thành công: navigate("/") tới trang login (user tự đăng nhập).
+ */
 export function useRegister() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");

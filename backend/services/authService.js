@@ -1,10 +1,9 @@
 /**
- * Nghiệp vụ xác thực: đăng ký, đăng nhập, quên/đặt lại mật khẩu.
+ * Nghiệp vụ xác thực (pure logic, không gắn req/res):
+ * đăng ký, đăng nhập, quên/đặt mật khẩu.
  *
- * - Mật khẩu chỉ lưu dạng hash (bcrypt), không lưu plaintext.
- * - Email có thể mã hóa/lookup trong DB (userModel + emailCrypto).
- * - JWT chứa sub (userId), email, fullName — dùng cho middleware và không cần tra DB mỗi request chỉ để biết id.
- * - UserSession: ghi phiên đăng nhập (refresh hash, userAgent, IP) phục vụ audit / refresh token sau này.
+ * Mật khẩu: chỉ lưu bcrypt hash trong User.passwordHash.
+ * JWT: signUserToken(buildTokenPayload(user)) — không đưa mật khẩu vào token.
  */
 const crypto = require("crypto");
 const User = require("../models/userModel");
@@ -12,13 +11,16 @@ const UserSession = require("../models/userSessionModel");
 const { signUserToken } = require("../middleware/auth");
 const { HttpError } = require("../utils/httpError");
 
+/** Sau số lần nhập sai mật khẩu này, response có thể gợi ý đổi mật khẩu */
 const MAX_FAILED_PASSWORD_BEFORE_SUGGEST = 5;
 const emailCrypto = require("../utils/emailCrypto");
 
-
 const MIN_PASSWORD_LEN = 6;
 
-/** Chuẩn hóa dữ liệu đưa vào JWT (không chứa mật khẩu). */
+/**
+ * Dữ liệu đưa vào JWT: userId (Mongo _id dạng string), email, fullName.
+ * Không chứa password hay dữ liệu nhạy cảm khác.
+ */
 function buildTokenPayload(user) {
   const plainUser = typeof user?.toJSON === "function" ? user.toJSON() : user;
   return {
@@ -28,7 +30,13 @@ function buildTokenPayload(user) {
   };
 }
 
-/** Đăng ký: kiểm tra trùng email → hash password → tạo user → ký JWT. */
+/**
+ * Đăng ký tài khoản mới.
+ * - Kiểm tra email chưa tồn tại
+ * - Hash password bằng bcrypt
+ * - Tạo document User
+ * - Ký JWT và trả { user, token } — controller register KHÔNG set cookie (client tự login sau)
+ */
 async function register({ email, password, fullName }) {
   if (!email || !password) throw new HttpError(400, "email and password required");
   const norm = emailCrypto.normalizeEmail(email);
@@ -49,8 +57,15 @@ async function register({ email, password, fullName }) {
 }
 
 /**
- * Đăng nhập: tìm user theo email, so khớp mật khẩu, reset/tăng bộ đếm sai mật khẩu,
- * tạo bản ghi UserSession, trả JWT + refresh token thô (client giữ refresh nếu cần).
+ * Đăng nhập: xác thực email + mật khẩu, trả JWT + (tuỳ chọn) refresh token.
+ *
+ * Luồng:
+ * 1) Chuẩn hóa email giống lúc lưu DB
+ * 2) Tìm user + lấy passwordHash để so sánh
+ * 3) Sai mật khẩu: tăng failedPasswordAttempts, có thể gợi ý forgot-password
+ * 4) Đúng: reset bộ đếm, cập nhật lastLoginAt
+ * 5) Tạo refresh token ngẫu nhiên, chỉ lưu hash trong UserSession (raw trả 1 lần cho client)
+ * 6) Ký JWT access (7 ngày) — controller sẽ set cookie + json cùng token đó
  */
 async function login({ email, password }, { userAgent = "", ip = "" } = {}) {
   if (!email || !password) throw new HttpError(400, "email and password required");
@@ -81,7 +96,6 @@ async function login({ email, password }, { userAgent = "", ip = "" } = {}) {
   user.lastLoginAt = new Date();
   await user.save();
 
-  // Refresh token lưu dạng hash trong DB; raw chỉ trả một lần cho client.
   const refreshRaw = crypto.randomBytes(48).toString("hex");
   const refreshTokenHash = crypto.createHash("sha256").update(refreshRaw).digest("hex");
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -102,7 +116,7 @@ async function login({ email, password }, { userAgent = "", ip = "" } = {}) {
   };
 }
 
-/** Bước quên mật khẩu: kiểm tra email tồn tại (tránh lộ danh sách email nếu muốn có thể luôn trả 200). */
+/** Quên mật khẩu: chỉ kiểm tra email có user (có thể mở rộng gửi email OTP) */
 async function requestForgotPassword({ email }) {
   if (!email) throw new HttpError(400, "email required");
   const user = await User.findByEmailInput(email);
@@ -114,7 +128,7 @@ async function requestForgotPassword({ email }) {
   };
 }
 
-/** Đặt mật khẩu mới theo email (sau khi đã qua bước xác minh ở tầng trên). */
+/** Đặt mật khẩu mới theo email (sau khi đã xác minh ở luồng forgot-password / OTP) */
 async function resetPasswordForgot({ email, newPassword }) {
   if (!email || !newPassword) {
     throw new HttpError(400, "email và newPassword là bắt buộc");
