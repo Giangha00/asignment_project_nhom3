@@ -1,22 +1,30 @@
 /**
- * Routes xác thực người dùng (public, không cần JWT).
+ * Routes xác thực — mount tại app.js: app.use("/api/auth", authRoutes)
+ * → URL đầy đủ: /api/auth/login, /api/auth/session, ...
  *
- * - POST /register     : Đăng ký tài khoản mới → tạo user + trả JWT (client có thể lưu / dùng cookie từ login).
- * - POST /login        : Đăng nhập → set cookie httpOnly + trả user + token.
- * - POST /logout       : Xóa cookie phiên → client coi như đã đăng xuất.
- * - GET  /session      : Kiểm tra phiên hiện tại (cần JWT) → trả user từ DB.
- * - POST /forgot-password : Bước 1 quên mật khẩu (kiểm tra email tồn tại).
- * - POST /reset-password  : Đặt lại mật khẩu khi biết email + mật khẩu mới.
+ * Các route này KHÔNG gắn authMiddleware (trừ GET /session): user chưa có JWT vẫn gọi được login/register.
  */
 const express = require("express");
 const auth = require("../controllers/authController");
 
 const router = express.Router();
+
+// POST /api/auth/register — tạo tài khoản mới (body: email, password, fullName?)
 router.post("/register", auth.register);
+
+// POST /api/auth/login — kiểm tra mật khẩu, server set cookie accessToken + trả JSON { user, token }
 router.post("/login", auth.login);
+
+// POST /api/auth/logout — xóa cookie accessToken trên trình duyệt
 router.post("/logout", auth.logout);
+
+// GET /api/auth/session — CẦN JWT (cookie hoặc Bearer); trả user hiện tại + token (cho Socket.io)
 router.get("/session", auth.session);
+
+// POST /api/auth/forgot-password — bước đầu quên mật khẩu (kiểm tra email)
 router.post("/forgot-password", auth.forgotPassword);
+
+// POST /api/auth/reset-password — đặt mật khẩu mới khi biết email
 router.post("/reset-password", auth.resetPassword);
 
 module.exports = router;

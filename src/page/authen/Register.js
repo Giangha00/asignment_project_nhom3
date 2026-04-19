@@ -6,6 +6,7 @@ import AuthField from "../../components/auth/AuthField";
 import AuthAlert from "../../components/auth/AuthAlert";
 import AuthButton from "../../components/auth/AuthButton";
 
+/** Đăng ký — route /register; thành công chuyển về / (login). Cookie chỉ có sau khi login. */
 function Register() {
   const {
     username, setUsername,
